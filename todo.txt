@@ -1,0 +1,13 @@
+defenders
+healers
+
+prioritizing attacking
+
+moving flag to safe place
+
+grid-baced spawn exploration
+exploration on borders
+symmetry detection
+traps
+
+escorting flag carriers
