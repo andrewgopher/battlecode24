@@ -1,4 +1,4 @@
-package player4;
+package player5;
 
 import battlecode.common.*;
 
@@ -25,35 +25,51 @@ public strictfp class RobotPlayer {
 
     static MapLocation spawnPos;
 
+    static int numDefenders = 10;
+
+    static boolean isDefender = false;
+
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
         while (true) {
             turnCount += 1;
             try {
-                if (!rc.isSpawned()){//spawn
+                if (!rc.isSpawned()) {//spawn
                     MapLocation[] spawnLocs = rc.getAllySpawnLocations();
-                    MapLocation mySpawnLoc = spawnLocs[rc.getID()%spawnLocs.length];
+                    MapLocation mySpawnLoc = spawnLocs[rc.getID() % spawnLocs.length];
                     if (rc.canSpawn(mySpawnLoc)) {
                         rc.spawn(mySpawnLoc);
                         rng = new Random(rc.getID());
                         if (rc.getRoundNum() == 1 && rc.readSharedArray(0) == 0) {
-                            Communicator.wipeArray(rc, (1<<16)-1);
+                            Communicator.wipeArray(rc, (1 << 16) - 1);
+                            Communicator.writeNumber(rc, Communicator.numDefendersStart, 0, 6);
                         }
                         spawnPos = rc.getLocation();
                         mapRecord = new char[rc.getMapWidth()][rc.getMapHeight()];
-                        topLeft = new MapLocation(0, rc.getMapHeight()-1);
-                        topRight = new MapLocation(rc.getMapWidth()-1, rc.getMapHeight()-1);
-                        bottomRight= new MapLocation(rc.getMapWidth()-1, 0);
+                        topLeft = new MapLocation(0, rc.getMapHeight() - 1);
+                        topRight = new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() - 1);
+                        bottomRight = new MapLocation(rc.getMapWidth() - 1, 0);
+                        if (Communicator.getNumDefenders(rc) < numDefenders) {
+                            Communicator.incrementDefenders(rc);
+                            isDefender = true;
+                        }
                     } else {
                         Clock.yield();
                         continue;
                     }
                 }
-                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS) {
-                    setup(rc);
+                if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS - 35) {
+                    if (isDefender) {
+                        defend(rc);
+                    } else {
+                        setup(rc);
+                    }
+                } else if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS) {
+                    MapLocation target = targetEnemySpawn(rc);
+                    Navigator.moveToward(rc, target);
                 } else {
-                    main(rc);
+                    attack(rc);
                 }
 
 
@@ -137,12 +153,13 @@ public strictfp class RobotPlayer {
         return result;
     }
 
-    public static void setup(RobotController rc) throws GameActionException {
+    public static void defend(RobotController rc) throws GameActionException {
         Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo);
         indicateSharedInfo(rc);
 
 
         Communicator.updateEnemyFlagLocations(rc, sharedEnemyFlagInfo);
+        pvp(rc, rc.senseNearbyRobots(-1, rc.getTeam().opponent()), rc.senseNearbyRobots(-1, rc.getTeam()));
 
         FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam());
         for (FlagInfo flag : nearbyFlags) {
@@ -206,35 +223,14 @@ public strictfp class RobotPlayer {
                 }
             }
         }
-        if (rc.hasFlag()) {
-            rc.setIndicatorString(newFlagLoc.toString());
-            if (rc.canDropFlag(newFlagLoc)) {
-                rc.dropFlag(newFlagLoc);
-            } else {
-                Navigator.moveToward(rc, newFlagLoc);
-            }
-        } else {
-            MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
-            if (nearbyCrumbs.length > 0) {
-                MapLocation target = nearbyCrumbs[0];
-                int minDistSq = 1000;
-                for (MapLocation nearbyCrumb : nearbyCrumbs) {
-                    int currDistSq =nearbyCrumb.distanceSquaredTo(rc.getLocation());
-                    if (currDistSq < minDistSq) {
-                        minDistSq = currDistSq;
-                        target = nearbyCrumb;
-                    }
-                }
-                Navigator.moveToward(rc, target);
-            } else {
-                Navigator.wander(rc, rng);
-            }
-        }
+
         int minDistSqToPlacedFlag = 100000;
+        MapLocation closestFlag = null;
         for (int i = 0; i < 3;i ++) {
             if (sharedAllyFlagInfo[i] != null) {
                 if (sharedAllyFlagInfo[i].distanceSquaredTo(rc.getLocation()) < minDistSqToPlacedFlag) {
                     minDistSqToPlacedFlag = sharedAllyFlagInfo[i].distanceSquaredTo(rc.getLocation());
+                    closestFlag = sharedAllyFlagInfo[i];
                 }
             }
         }
@@ -245,13 +241,49 @@ public strictfp class RobotPlayer {
             }
         }
 
-        if (minDistSqToPlacedFlag < (rc.getRoundNum()/3)) {
-            if (minDistSqToPlacedFlag > 4) {
-
-                if (rc.canBuild(TrapType.WATER, rc.getLocation()) && rc.getLocation().x%2==1 && rc.getLocation().y%2==1) {
+        if (rc.getLocation().x %3 == 1 && rc.getLocation().y%3==1) {
+            if (minDistSqToPlacedFlag > 2 && minDistSqToPlacedFlag <= 200) {
+                if (rc.canBuild(TrapType.WATER, rc.getLocation())) {
                     rc.build(TrapType.WATER, rc.getLocation());
                 }
             }
+        }
+        if (rc.hasFlag()) {
+            rc.setIndicatorString(newFlagLoc.toString());
+            if (rc.canDropFlag(newFlagLoc)) {
+                rc.dropFlag(newFlagLoc);
+            } else {
+                Navigator.moveToward(rc, newFlagLoc);
+            }
+        } else {
+            if (minDistSqToPlacedFlag > 200 && closestFlag != null) {
+                Navigator.moveToward(rc, closestFlag);
+            } else {
+                Navigator.wander(rc, rng);
+            }
+        }
+    }
+
+    public static void setup(RobotController rc) throws GameActionException {
+        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo);
+        indicateSharedInfo(rc);
+
+
+        Communicator.updateEnemyFlagLocations(rc, sharedEnemyFlagInfo);
+        MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
+        if (nearbyCrumbs.length > 0) {
+            MapLocation target = nearbyCrumbs[0];
+            int minDistSq = 1000;
+            for (MapLocation nearbyCrumb : nearbyCrumbs) {
+                int currDistSq =nearbyCrumb.distanceSquaredTo(rc.getLocation());
+                if (currDistSq < minDistSq) {
+                    minDistSq = currDistSq;
+                    target = nearbyCrumb;
+                }
+            }
+            Navigator.moveToward(rc, target);
+        } else {
+            Navigator.wander(rc, rng);
         }
     }
 
@@ -282,7 +314,24 @@ public strictfp class RobotPlayer {
 
     static boolean isEscorting = false;
     static MapLocation fillLoc = null;
-    public static void main(RobotController rc) throws GameActionException{
+
+    public static MapLocation targetEnemySpawn(RobotController rc) {
+        Symmetry currSymmetry = getSymmetry();
+
+        MapLocation target;
+
+        if (currSymmetry == Symmetry.ROTATIONAL) {
+            target = new MapLocation(rc.getMapWidth() - spawnPos.x, rc.getMapHeight() - spawnPos.y);
+        } else if (currSymmetry == Symmetry.HORIZONTAL) {
+
+            target = new MapLocation(spawnPos.x, rc.getMapHeight() - spawnPos.y);
+        } else {
+            target = new MapLocation(rc.getMapWidth() - spawnPos.x, spawnPos.y);
+
+        }
+        return target;
+    }
+    public static void attack(RobotController rc) throws GameActionException{
         Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo);
         indicateSharedInfo(rc);
 
@@ -290,6 +339,7 @@ public strictfp class RobotPlayer {
 
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         RobotInfo[] nearbyAllies = rc.senseNearbyRobots(-1, rc.getTeam());
+        MapLocation[] broadcastFlagLocations = rc.senseBroadcastFlagLocations();
 
         if (fillLoc != null) {
             if (rc.canFill(fillLoc)) {
@@ -298,10 +348,14 @@ public strictfp class RobotPlayer {
             }
         }
 
-        if (rc.canPickupFlag(rc.getLocation())) {
-            rc.pickupFlag(rc.getLocation());
-            Communicator.eraseFirstLocation(rc, Communicator.enemyFlagLocationsStart, Communicator.enemyFlagLocationsStart+3*12,rc.getLocation());
+        FlagInfo[] nearbyEnemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
+        for (FlagInfo nearbyEnemyFlag : nearbyEnemyFlags) {
+            if (rc.canPickupFlag(nearbyEnemyFlag.getLocation())) {
+                rc.pickupFlag(nearbyEnemyFlag.getLocation());
+                Communicator.eraseFirstLocation(rc, Communicator.enemyFlagLocationsStart, Communicator.enemyFlagLocationsStart + 3 * 12, rc.getLocation());
+            }
         }
+        pvp(rc, nearbyEnemies, nearbyAllies);
 
         if (rc.hasFlag()) {
             MapLocation target = chooseClosestTarget(rc.getLocation(), rc.getAllySpawnLocations());
@@ -310,44 +364,47 @@ public strictfp class RobotPlayer {
             MapLocation target = chooseClosestTarget(rc.getLocation(), sharedEnemyFlagInfo);
             Navigator.moveToward(rc, target);
         } else {
+            isEscorting = false;
             for (RobotInfo ally : nearbyAllies) {
                 if (ally.hasFlag()) {
-                    Direction direction = ally.getLocation().directionTo(chooseClosestTarget(ally.getLocation(), rc.getAllySpawnLocations()));
-                    Navigator.tryDir(rc, direction);
                     isEscorting = true;
+                    if (ally.getLocation().distanceSquaredTo(rc.getLocation()) < 9) {
+                        Direction direction = ally.getLocation().directionTo(chooseClosestTarget(ally.getLocation(), rc.getAllySpawnLocations()));
+                        Navigator.tryDir(rc, direction);
+                    } else {
+                        Navigator.tryDir(rc,rc.getLocation().directionTo(ally.getLocation()));
+                    }
                 }
             }
-            if (rc.getMovementCooldownTurns()<10) {
-                isEscorting = false;
-                Symmetry currSymmetry = getSymmetry();
-
-                MapLocation target;
-
-                if (currSymmetry == Symmetry.ROTATIONAL) {
-                    target = new MapLocation(rc.getMapWidth() - spawnPos.x, rc.getMapHeight() - spawnPos.y);
-                } else if (currSymmetry == Symmetry.HORIZONTAL) {
-
-                    target = new MapLocation(spawnPos.x, rc.getMapHeight() - spawnPos.y);
+            if (rc.getMovementCooldownTurns()<10 && !isEscorting) {
+                if (broadcastFlagLocations.length==0) {
+                    MapLocation target = targetEnemySpawn(rc);
+                    Navigator.moveToward(rc, target);
                 } else {
-                    target = new MapLocation(rc.getMapWidth() - spawnPos.x, spawnPos.y);
-
+                    MapLocation closestBroadcastLoc = chooseClosestTarget(rc.getLocation(), broadcastFlagLocations);
+                    Navigator.moveToward(rc, closestBroadcastLoc);
                 }
-                Navigator.moveToward(rc, target);
             }
         }
+    }
 
-        int minDistSq=1000;
+    public static void pvp(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies) throws GameActionException {
+        int minEnemyHealth=1000;
         MapLocation attackTarget = rc.getLocation();
         for (RobotInfo enemy : nearbyEnemies) {
-            int currDistSq = (enemy.getLocation().distanceSquaredTo(rc.getLocation()));
-            if (currDistSq < minDistSq) {
-                minDistSq = currDistSq;
+            if (enemy.hasFlag() && rc.canAttack(enemy.getLocation())) {
+                attackTarget = enemy.getLocation();
+                break;
+            }
+            if (rc.canAttack(enemy.getLocation()) && enemy.getHealth()<minEnemyHealth) {
+                minEnemyHealth = enemy.getHealth();
                 attackTarget = enemy.getLocation();
             }
         }
         if (nearbyEnemies.length > 0 && rc.canAttack(attackTarget)) {
             rc.attack(attackTarget);
         }
+        Navigator.moveToward(rc, attackTarget);
         if (rc.getActionCooldownTurns() < 10) {
 
             int minAllyHealth = 1000;

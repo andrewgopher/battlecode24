@@ -1,4 +1,4 @@
-package player4;
+package player5;
 
 import battlecode.common.*;
 
@@ -13,6 +13,9 @@ public strictfp class Navigator {
             MapLocation nextLoc = rc.getLocation().add(dir);
             if (rc.onTheMap(nextLoc)) {
                 MapInfo mapInfo = rc.senseMapInfo(nextLoc);
+                if (mapInfo.isDam()) {
+                    return null;
+                }
                 if (mapInfo.isWater() && rc.hasFlag()) {
                     if (rc.canDropFlag(rc.getLocation())) {
                         rc.dropFlag(rc.getLocation());

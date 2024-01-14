@@ -1,13 +1,38 @@
 defenders
-healers
+healers//somewhat done
 
 prioritizing attacking
 
 moving flag to safe place
 
-grid-baced spawn exploration
+grid-based spawn exploration
 exploration on borders
 symmetry detection
 traps
 
 escorting flag carriers
+
+better traps inside
+midgame traps
+global upgrade
+spreading out during spawn
+better bugnav
+avoiding traps
+roles: attacking/defending, builders/healers/attackers
+
+demanding for water fills when flag carrier
+rushing to dam at beginning
+getting crumbs in midgame
+
+spreading heals
+
+using broadcast enemy flag locations
+
+fix escorters leaving
+avoid explosive traps
+compromising when cant place in corner
+
+better defense?
+
+
+better wander: claiming "sectors"

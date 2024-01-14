@@ -12,7 +12,6 @@ public strictfp class Navigator {
         }
         Direction dirToLoc = rc.getLocation().directionTo(loc);
         if (rc.canMove(dirToLoc)) {
-            rc.setIndicatorString(dirToLoc.name());
             rc.move(dirToLoc);
         } else {
             if (rc.canFill(rc.getLocation().add(dirToLoc))) {
@@ -44,7 +43,6 @@ public strictfp class Navigator {
         }
         Direction dirAwayLoc = rc.getLocation().directionTo(loc).opposite();
         if (rc.canMove(dirAwayLoc)) {
-            rc.setIndicatorString(dirAwayLoc.name());
             rc.move(dirAwayLoc);
         } else {
             while (!rc.canMove(dirAwayLoc)) {
