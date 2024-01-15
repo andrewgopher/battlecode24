@@ -360,19 +360,22 @@ public strictfp class RobotPlayer {
         if (rc.hasFlag()) {
             MapLocation target = chooseClosestTarget(rc.getLocation(), rc.getAllySpawnLocations());
             fillLoc = Navigator.moveToward(rc, target);
-        } else if (!isEscorting && sharedEnemyFlagInfo[0] != null || sharedEnemyFlagInfo[1] != null || sharedEnemyFlagInfo[2] != null) {
+        } else if (!isEscorting && (sharedEnemyFlagInfo[0] != null || sharedEnemyFlagInfo[1] != null || sharedEnemyFlagInfo[2] != null)) {
             MapLocation target = chooseClosestTarget(rc.getLocation(), sharedEnemyFlagInfo);
             Navigator.moveToward(rc, target);
         } else {
             isEscorting = false;
             for (RobotInfo ally : nearbyAllies) {
                 if (ally.hasFlag()) {
+                    int distSqFromAlly = ally.getLocation().distanceSquaredTo(rc.getLocation());
                     isEscorting = true;
-                    if (ally.getLocation().distanceSquaredTo(rc.getLocation()) < 9) {
-                        Direction direction = ally.getLocation().directionTo(chooseClosestTarget(ally.getLocation(), rc.getAllySpawnLocations()));
+                    Direction direction = ally.getLocation().directionTo(chooseClosestTarget(ally.getLocation(), rc.getAllySpawnLocations()));
+                    int distSqFromAllyAfterAllyMoves = ally.getLocation().add(direction).distanceSquaredTo(rc.getLocation());
+                    if (distSqFromAllyAfterAllyMoves < distSqFromAlly && ally.getLocation().distanceSquaredTo(rc.getLocation()) < 4) {
                         Navigator.tryDir(rc, direction);
-                    } else {
-                        Navigator.tryDir(rc,rc.getLocation().directionTo(ally.getLocation()));
+                    }
+                    if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
+                        Navigator.tryDir(rc, direction);
                     }
                 }
             }
@@ -389,7 +392,7 @@ public strictfp class RobotPlayer {
     }
 
     public static void pvp(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies) throws GameActionException {
-        int minEnemyHealth=1000;
+        int minEnemyHealth=1001;
         MapLocation attackTarget = rc.getLocation();
         for (RobotInfo enemy : nearbyEnemies) {
             if (enemy.hasFlag() && rc.canAttack(enemy.getLocation())) {
