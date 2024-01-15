@@ -34,9 +34,23 @@ compromising when cant place in corner
 
 better defense?
 
+try defense again?
 
 better wander: claiming "sectors"
 
 only healing under certain threshold
 
 store location of flag carrier # of escorters, join escorting
+
+Jan 15:
+traps based on direction of enemy (using prevNearbyEnemies) +
+defense
+test on enclosed map b/c sprint maps will be different
+better bugnav
+hyperparameter tuner script (genetic algorithm)
+ally flag carriers in shared array
+midgame crumbs
+
+\\
+
+logging/debugging

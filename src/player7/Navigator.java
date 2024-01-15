@@ -1,4 +1,4 @@
-package player5;
+package player7;
 
 import battlecode.common.*;
 
@@ -6,11 +6,13 @@ import java.util.Random;
 
 public strictfp class Navigator {
 
+
     public static MapLocation tryDir(RobotController rc, Direction dir) throws GameActionException {
         if (rc.canMove(dir)) {
             rc.move(dir);
         } else {
             MapLocation nextLoc = rc.getLocation().add(dir);
+
             if (rc.onTheMap(nextLoc)) {
                 MapInfo mapInfo = rc.senseMapInfo(nextLoc);
                 if (mapInfo.isDam()) {
@@ -27,9 +29,12 @@ public strictfp class Navigator {
                 rc.fill(nextLoc);
             }
             int i  =0;
-            while (!rc.canMove(dir) && i < 8) {
+            while ((!rc.canMove(dir) && !rc.canFill(rc.getLocation().add(dir)))&& i < 8) {
                 dir= dir.rotateRight();
                 i++;
+            }
+            if (rc.canFill(rc.getLocation().add(dir))) {
+                rc.fill(rc.getLocation().add(dir));
             }
             if (rc.canMove(dir)) {
                 rc.move(dir);
