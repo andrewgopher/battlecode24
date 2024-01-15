@@ -36,3 +36,7 @@ better defense?
 
 
 better wander: claiming "sectors"
+
+only healing under certain threshold
+
+store location of flag carrier # of escorters, join escorting

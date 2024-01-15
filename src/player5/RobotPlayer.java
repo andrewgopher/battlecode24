@@ -29,6 +29,8 @@ public strictfp class RobotPlayer {
 
     static boolean isDefender = false;
 
+    static GlobalUpgrade[] globalUpgrades = {GlobalUpgrade.ACTION, GlobalUpgrade.HEALING};
+
 
     @SuppressWarnings("unused")
     public static void run(RobotController rc) throws GameActionException {
@@ -58,6 +60,17 @@ public strictfp class RobotPlayer {
                         Clock.yield();
                         continue;
                     }
+                }
+
+                Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo);
+                indicateSharedInfo(rc);
+                Communicator.updateEnemyFlagLocations(rc, sharedEnemyFlagInfo);
+
+                if (rc.canBuyGlobal(globalUpgrades[0])) {
+                    rc.buyGlobal(globalUpgrades[0]);
+                }
+                if (rc.canBuyGlobal(globalUpgrades[1])) {
+                    rc.buyGlobal(globalUpgrades[1]);
                 }
                 if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS - 35) {
                     if (isDefender) {
@@ -154,11 +167,6 @@ public strictfp class RobotPlayer {
     }
 
     public static void defend(RobotController rc) throws GameActionException {
-        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo);
-        indicateSharedInfo(rc);
-
-
-        Communicator.updateEnemyFlagLocations(rc, sharedEnemyFlagInfo);
         pvp(rc, rc.senseNearbyRobots(-1, rc.getTeam().opponent()), rc.senseNearbyRobots(-1, rc.getTeam()));
 
         FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam());
@@ -265,11 +273,6 @@ public strictfp class RobotPlayer {
     }
 
     public static void setup(RobotController rc) throws GameActionException {
-        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo);
-        indicateSharedInfo(rc);
-
-
-        Communicator.updateEnemyFlagLocations(rc, sharedEnemyFlagInfo);
         MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
         if (nearbyCrumbs.length > 0) {
             MapLocation target = nearbyCrumbs[0];
@@ -332,10 +335,6 @@ public strictfp class RobotPlayer {
         return target;
     }
     public static void attack(RobotController rc) throws GameActionException{
-        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo);
-        indicateSharedInfo(rc);
-
-        Communicator.updateEnemyFlagLocations(rc, sharedEnemyFlagInfo);
 
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
         RobotInfo[] nearbyAllies = rc.senseNearbyRobots(-1, rc.getTeam());
