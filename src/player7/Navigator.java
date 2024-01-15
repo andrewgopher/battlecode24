@@ -5,11 +5,34 @@ import battlecode.common.*;
 import java.util.Random;
 
 public strictfp class Navigator {
+    public static boolean canMove(RobotController rc, Direction dir) throws GameActionException {
+        MapLocation newLoc = rc.getLocation().add(dir);
+        return rc.canMove(dir) || (rc.onTheMap(newLoc) && rc.senseMapInfo(newLoc).isWater());
+    }
 
-
-    public static MapLocation tryDir(RobotController rc, Direction dir) throws GameActionException {
+    public static MapLocation tryMove(RobotController rc, Direction dir) throws GameActionException {
+        MapLocation newLoc = rc.getLocation().add(dir);
+        if (rc.onTheMap(newLoc) && rc.senseMapInfo(newLoc).isWater()) {
+            if (rc.hasFlag()) {
+                if (rc.canDropFlag(rc.getLocation())) {
+                    rc.dropFlag(rc.getLocation());
+                    return newLoc;
+                }
+            } else {
+                if (rc.canFill(newLoc)) {
+                    rc.fill(newLoc);
+                }
+            }
+        }
         if (rc.canMove(dir)) {
             rc.move(dir);
+        }
+        return null;
+    }
+
+    public static MapLocation tryDir(RobotController rc, Direction dir) throws GameActionException {
+        if (canMove(rc,dir)) {
+            return tryMove(rc,dir);
         } else {
             MapLocation nextLoc = rc.getLocation().add(dir);
 
@@ -18,29 +41,16 @@ public strictfp class Navigator {
                 if (mapInfo.isDam()) {
                     return null;
                 }
-                if (mapInfo.isWater() && rc.hasFlag()) {
-                    if (rc.canDropFlag(rc.getLocation())) {
-                        rc.dropFlag(rc.getLocation());
-                        return nextLoc;
-                    }
-                }
-            }
-            if (rc.canFill(nextLoc)) {
-                rc.fill(nextLoc);
+            } else {
+                return null;
             }
             int i  =0;
-            while ((!rc.canMove(dir) && !rc.canFill(rc.getLocation().add(dir)))&& i < 8) {
+            while (!canMove(rc,dir) && i < 8) {
                 dir= dir.rotateRight();
                 i++;
             }
-            if (rc.canFill(rc.getLocation().add(dir))) {
-                rc.fill(rc.getLocation().add(dir));
-            }
-            if (rc.canMove(dir)) {
-                rc.move(dir);
-            }
+            return tryMove(rc,dir);
         }
-        return null;
     }
 
     public static MapLocation moveToward(RobotController rc,MapLocation loc) throws GameActionException {

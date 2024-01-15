@@ -1,7 +1,7 @@
 package player7;
 
 import battlecode.common.*;
-import player6.fast.FastIntLocMap;
+import player7.fast.FastIntLocMap;
 
 import java.util.Random;
 
@@ -90,7 +90,7 @@ public strictfp class RobotPlayer {
 
                 RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent()); //TODO: remove redundancy
                 for (RobotInfo nearbyEnemy : nearbyEnemies) {
-                    lastSeenPrevEnemyLoc.add(nearbyEnemy.getID(), nearbyEnemy.getLocation());
+                    lastSeenPrevEnemyLoc.addReplace(nearbyEnemy.getID(), nearbyEnemy.getLocation());
                 }
             } catch (GameActionException e) {
                 System.out.println("GameActionException");
@@ -434,25 +434,15 @@ public strictfp class RobotPlayer {
 
     public static int evaluateTrap(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation trapLocation) {
         int eval = 0;
-        boolean impact = false;
         for (RobotInfo enemy : nearbyEnemies) {
-            boolean sameDir=false; //enemy.getLocation().directionTo(rc.getLocation()) == enemy.getLocation().directionTo(trapLocation);
-            MapLocation prevLoc = lastSeenPrevEnemyLoc.getLoc(enemy.getID());
-            if (prevLoc != null) {
-                int minDist = minDistToTrap(rc, enemy.getLocation(), prevLoc.directionTo(enemy.getLocation()), trapLocation);
-                if (minDist <= TrapType.EXPLOSIVE.enterRadius) {
-                    sameDir=true;
-                }
-                if (minDist == 0) {
-                    impact = true;
-                }
+            MapLocation lastSeenLoc = lastSeenPrevEnemyLoc.getLoc(enemy.getID());
+            boolean sameDir = false;
+            if (lastSeenLoc != null) {
+                sameDir = lastSeenLoc.directionTo(enemy.getLocation()) == enemy.getLocation().directionTo(trapLocation);
             }
-            if (sameDir) {
+            if (enemy.getLocation().distanceSquaredTo(trapLocation) <= 4 || (sameDir && enemy.getLocation().distanceSquaredTo(trapLocation) <= 16)) {
                 eval++;
             }
-        }
-        if (!impact) {
-            eval = 0;
         }
         return eval;
     }
@@ -475,9 +465,9 @@ public strictfp class RobotPlayer {
                             minAllyTrapDist = nearbyAllyTrap.distanceSquaredTo(buildableLoc);
                         }
                     }
-                    if (minAllyTrapDist <= 2) {
-                        currEval = 0;
-                    }
+//                    if (minAllyTrapDist <= 2) {
+//                        currEval = 0;
+//                    }
                 }
 
                 if (currEval > bestEval) {
@@ -487,6 +477,17 @@ public strictfp class RobotPlayer {
             }
         }
         return bestEvalLoc;
+    }
+
+    public static int evaluateSafety(RobotController rc, MapLocation newLoc,RobotInfo[] nearbyAllies, RobotInfo[] nearbyEnemies) {
+        int eval = 0;
+        for (RobotInfo nearbyAlly : nearbyAllies) {
+            eval += Math.max(0, GameConstants.VISION_RADIUS_SQUARED - nearbyAlly.getLocation().distanceSquaredTo(newLoc));
+        }
+        for (RobotInfo nearbyEnemy : nearbyEnemies) {
+            eval -= Math.max(0, GameConstants.VISION_RADIUS_SQUARED - nearbyEnemy.getLocation().distanceSquaredTo(newLoc));
+        }
+        return eval;
     }
 
     public static void fight(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies, MapInfo[] nearbyMapInfos) throws GameActionException {
@@ -502,21 +503,48 @@ public strictfp class RobotPlayer {
         //attacking
         MapLocation attackTarget = chooseBestAttackTarget(rc, nearbyEnemies, true);
         if (attackTarget!= null && rc.canAttack(attackTarget)) {
-            rc.setIndicatorDot(attackTarget, 255, 0, 0);
+//            rc.setIndicatorDot(attackTarget, 255, 0, 0);
             rc.attack(attackTarget);
         }
 
         //chasing
         MapLocation closestEnemyLoc = chooseBestAttackTarget(rc, nearbyEnemies, false);
-        if (!isEscorting && !rc.hasFlag() && closestEnemyLoc != null && nearbyAllies.length-nearbyEnemies.length >= 2) {
+        if (!isEscorting && !rc.hasFlag() && closestEnemyLoc != null && nearbyAllies.length-nearbyEnemies.length >= 1) {
             rc.setIndicatorString("chasing! " + closestEnemyLoc);
-            rc.setIndicatorDot(closestEnemyLoc, 0, 255, 0);
+//            rc.setIndicatorDot(closestEnemyLoc, 0, 255, 0);
             Navigator.moveToward(rc, closestEnemyLoc);
+        } else if (!isEscorting && !rc.hasFlag() && nearbyAllies.length-nearbyEnemies.length <1) {
+            //todo: running away from enemies toward allies to regroup (maybe even go to ally traps to bait)
+            String report = "";
+            Direction safestDir = null;
+            int safestDirEval = -Util.BigNum;
+            for (Direction dir : DirectionsUtil.directions) {
+                if (Navigator.canMove(rc, dir)) {
+                    int currEval = evaluateSafety(rc, rc.getLocation().add(dir), nearbyAllies, nearbyEnemies);
+                    report += dir.name() + " " + currEval + ",";
+                    if (currEval > safestDirEval) {
+                        safestDirEval = currEval;
+                        safestDir = dir;
+                    }
+                }
+            }
+            rc.setIndicatorString(report);
+            if (safestDir != null) {
+                Navigator.tryMove(rc, safestDir);
+            }
         }
 
-        //todo: running away from enemies toward allies to regroup (maybe even go to ally traps to bait)
 
-        MapLocation bestTrapLoc = chooseTrapLoc(rc, nearbyEnemies, nearbyAllyTraps, 3);
+        MapLocation bestTrapLoc = chooseTrapLoc(rc, nearbyEnemies, nearbyAllyTraps, 2);
+        if (rc.getID() == 13978) {
+            rc.setIndicatorString(String.valueOf(evaluateTrap(rc, nearbyEnemies, rc.getLocation())));
+            if (lastSeenPrevEnemyLoc.getLoc(12021) != null) {
+                rc.setIndicatorDot(lastSeenPrevEnemyLoc.getLoc(12021), 255, 255, 0);
+            }
+            if (lastSeenPrevEnemyLoc.getLoc(10136) != null) {
+                rc.setIndicatorDot(lastSeenPrevEnemyLoc.getLoc(10136), 255, 0,255);
+            }
+        }
         if (bestTrapLoc != null && rc.canBuild(TrapType.EXPLOSIVE, bestTrapLoc)) {
             rc.build(TrapType.EXPLOSIVE, bestTrapLoc);
         }
