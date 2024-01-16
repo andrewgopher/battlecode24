@@ -1,56 +1,27 @@
-defenders
-healers//somewhat done
+after Jan 15:
 
-prioritizing attacking
+going back to defend
+camping spawns
 
-moving flag to safe place
-
-grid-based spawn exploration
-exploration on borders
-symmetry detection
-traps
-
-escorting flag carriers
-
-better traps inside
-midgame traps
-global upgrade
-spreading out during spawn
-better bugnav
-avoiding traps
-roles: attacking/defending, builders/healers/attackers
-
-demanding for water fills when flag carrier
-rushing to dam at beginning
-getting crumbs in midgame
-
-spreading heals
-
-using broadcast enemy flag locations
-
-fix escorters leaving
-avoid explosive traps
-compromising when cant place in corner
-
-better defense?
-
-try defense again?
-
-better wander: claiming "sectors"
-
-only healing under certain threshold
-
-store location of flag carrier # of escorters, join escorting
-
-Jan 15:
-traps based on direction of enemy (using prevNearbyEnemies) +
-defense
-test on enclosed map b/c sprint maps will be different
+fixing repositioning of ally flags
 better bugnav
 hyperparameter tuner script (genetic algorithm)
 ally flag carriers in shared array
-midgame crumbs
-
-\\
+enemy flag carriers in shared array
+better wander: claiming "sectors"
+only healing under certain threshold (tune with genetic alg)
+better grouping/rotating when damaged
+target prioritization
+everybody rushing one flag at a time? or spread out
+symmetry detection
 
 logging/debugging
+
+instead of all nearby allies escorting flag carrier, some allies push away nearby enemies
+
+not blocking others when group/escorting
+tuning trap placement
+
+evaluating situation based on health
+
+baiting enemy into trap (don't step on own trap when the space is open)

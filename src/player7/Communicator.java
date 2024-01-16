@@ -5,8 +5,8 @@ import battlecode.common.*;
 public strictfp class Communicator {
     //fixed location counts
     //shared array bit locations of various things
-    static final int symmetriesStart = 0;
-    static final int allyFlagLocationsStart = symmetriesStart+3;
+    static final int numAllyFlagsFoundStart = 0;
+    static final int allyFlagLocationsStart = numAllyFlagsFoundStart+2;
     static final int enemyFlagLocationsStart = allyFlagLocationsStart+3*12;
     static final int numDefendersStart = enemyFlagLocationsStart+3*12;
 
@@ -133,8 +133,8 @@ public strictfp class Communicator {
             currX = interpretNumber(rc, startIndex, 6);
             currY = interpretNumber(rc, startIndex+6, 6);
             if (currX == 63 && currY == 63) {
-                    writeLocation(rc, startIndex, loc);
-                    return;
+                writeLocation(rc, startIndex, loc);
+                return;
             }
 
             if (currX == loc.x && currY == loc.y) {
@@ -168,5 +168,12 @@ public strictfp class Communicator {
 
     public static void incrementDefenders(RobotController rc) throws GameActionException {
         writeNumber(rc, numDefendersStart, getNumDefenders(rc)+1,6);
+    }
+
+    public static int getNumAllyFlagsFound(RobotController rc) throws GameActionException {
+        return interpretNumber(rc, numAllyFlagsFoundStart, 2);
+    }
+    public static void incrementNumAllyFlagsFound(RobotController rc) throws GameActionException {
+        writeNumber(rc, numAllyFlagsFoundStart, getNumAllyFlagsFound(rc)+1, 2);
     }
 }
