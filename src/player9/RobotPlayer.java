@@ -368,9 +368,9 @@ public strictfp class RobotPlayer {
 
         if (rc.hasFlag()) {
             lastFlagRound=rc.getRoundNum();
+            int flagId = rc.senseNearbyFlags(0)[0].getID();
             MapLocation target = chooseClosestTarget(rc.getLocation(), rc.getAllySpawnLocations());
             fillLoc = Navigator.moveToward(rc, target);
-            int flagId = rc.senseNearbyFlags(0)[0].getID();
             for (int i = 0; i < 3; i ++) {
                 if (flagId == Communicator.interpretNumber(rc, Communicator.enemyFlagIDsStart+14*i, 14)) {
                     flagInd = i;
@@ -381,8 +381,6 @@ public strictfp class RobotPlayer {
         } else if (!isEscorting) {
             MapLocation target = null;
             int minDistSq = Util.BigNum;
-            String report = "";
-            report+=Communicator.interpretNumber(rc, Communicator.enemyFlagCapturedStart,3);
             for (int i = 0;i<3;i++) {
                 MapLocation loc = sharedEnemyFlagInfo[i];
                 if (loc == null || sharedAllyFlagCarrierInfo[i] != null || Communicator.readBit(rc, Communicator.enemyFlagCapturedStart+i)) continue;
@@ -392,7 +390,6 @@ public strictfp class RobotPlayer {
                     target = loc;
                 }
             }
-            rc.setIndicatorString(report);
             if (target != null) {
                 Navigator.moveToward(rc, target);
             } else {
@@ -543,10 +540,10 @@ public strictfp class RobotPlayer {
 
         //chasing, evading
         MapLocation closestEnemyLoc = chooseBestAttackTarget(rc, nearbyEnemies, false);
-        if (!isEscorting && !rc.hasFlag() && closestEnemyLoc != null && (nearbyAllies.length-nearbyEnemies.length >= 1 || numNearbyEnemyFlagCarriers > 0)) {
+        if (!isEscorting && !rc.hasFlag() && closestEnemyLoc != null && (nearbyAllies.length-nearbyEnemies.length >= 1 || numNearbyEnemyFlagCarriers > 0)) {//TODO: don't chase if can attack
             indicatorString += "chasing " + closestEnemyLoc+"|";
             Navigator.moveToward(rc, closestEnemyLoc);
-        } else if (!isEscorting && !rc.hasFlag() && nearbyAllies.length-nearbyEnemies.length <1 && numNearbyEnemyFlagCarriers == 0 && doEvade) {
+        } else if (!isEscorting && !rc.hasFlag() && nearbyAllies.length-nearbyEnemies.length <1 && numNearbyEnemyFlagCarriers == 0 && doEvade) { //TODO: evading AFTER attack
             //TODO: bait into ally trap
             Direction safestDir = null;
             int safestDirEval = -Util.BigNum;
@@ -594,6 +591,6 @@ public strictfp class RobotPlayer {
                 rc.heal(healTarget);
             }
         }
-//        rc.setIndicatorString(indicatorString);
+        rc.setIndicatorString(indicatorString);
     }
 }
