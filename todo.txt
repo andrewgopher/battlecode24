@@ -25,3 +25,18 @@ tuning trap placement
 evaluating situation based on health
 
 baiting enemy into trap (don't step on own trap when the space is open)
+
+AFTER HUGE MICRO UPGRADE:
+going to enemy spawn after broadcast location
+healing
+helping ally flag carriers
+duck at spawn
+helping to target enemy flag carriers
+spawning at best location (safety, proximity to enemy flags)
+carrying flag to best location (safety, proximity) (even better, avoiding dangerous places?)
+PATHFINDING
+spreading out along dam
+moving flags
+escorting limit (registration in shared array)
+Fountain crowding ????
+Yinyang blocking ???

@@ -297,42 +297,34 @@ public class Player extends Robot{
     }
 
     public void kiteWithEval(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies, int eval) throws GameActionException {
-        int currAttack = inAttackRange(rc.getLocation(), nearbyEnemies);
         int currMoveAttack = inMoveAttackRange(rc.getLocation(), nearbyEnemies);
         Direction currKite = kite(rc,nearbyEnemies,nearbyAllies);
 
         if (currKite != null) {
-            if (currAttack > 0) {
+            if (currMoveAttack > eval/1000) {
                 rc.move(currKite);
                 indicatorString+="kite because under attack "+currKite.name()+",";
-            } else if (currMoveAttack == 1) {
-                if (rc.getActionCooldownTurns() - 10 < 10 && eval >= 0) {
-                    //stay
-                } else {
-                    rc.move(currKite);
-                    indicatorString+="kite because risk "+currKite.name()+",";
-                }
-            } else if (currMoveAttack > 1) {
-                rc.move(currKite);
-                indicatorString+="kite because multiple risk "+currKite.name()+",";
             }
+//            else if (eval < 0) {
+//                if (rc.getActionCooldownTurns() - 10 < 10) {
+//                    indicatorString += "stay because can attack next,";
+//                } else {
+//                    rc.move(currKite);
+//                    indicatorString+="kite because being overpowered "+currKite.name()+",";
+//                }
+//            }
         }
     }
 
     public void chaseWithEval(RobotController rc, RobotInfo[] nearbyEnemies, int eval) throws GameActionException {
         Direction chaseDir = chase(rc, nearbyEnemies);
 
-        Direction origChase=chaseDir;
         if (chaseDir != null) {
-            int currAttack = inAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
             int currMoveAttack = inMoveAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
 
-            if (currMoveAttack == 0) {
+            if (currMoveAttack <= eval/1000) {
                 rc.move(chaseDir);
-                indicatorString+="chase because safe " + origChase.name() + ",";
-            } else if (currAttack == 0 && currMoveAttack <= 1 && eval >= 0) {
-                rc.move(chaseDir);
-                indicatorString+="chase because overpowering " + origChase.name() + ",";
+                indicatorString+="chase " + chaseDir.name() + ",";
             }
         }
     }
@@ -369,22 +361,7 @@ public class Player extends Robot{
             kiteWithEval(rc,nearbyEnemies,nearbyAllies,eval);
         } else {
             kiteWithEval(rc,nearbyEnemies,nearbyAllies,eval);
-            if (rc.getMovementCooldownTurns() < 10 && inMoveAttackRange(rc.getLocation(),nearbyEnemies)==0) {
-                if (rc.getActionCooldownTurns()-10 < 10) {
-                    chaseWithEval(rc,nearbyEnemies,eval);
-                } else {
-                    Direction chaseDir = chase(rc, nearbyEnemies);
-                    Direction origChase=chaseDir;
-                    if (chaseDir != null) {
-                        int currMoveAttack = inMoveAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
-
-                        if (currMoveAttack == 0) {
-                            indicatorString+="chase because no attack and safe " + origChase.name()+",";
-                            rc.move(chaseDir);
-                        }
-                    }
-                }
-            }
+            chaseWithEval(rc,nearbyEnemies,eval);
         }
         if (rc.getMovementCooldownTurns()<10){
             indicatorString+="stay";
