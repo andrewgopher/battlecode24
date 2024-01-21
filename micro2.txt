@@ -1,0 +1,33 @@
+kiting: minimize attack risk (break ties by distance to allies, distance to enemies)
+chasing: if we can't move into attacking range, minimize minimum distance. else, minimize risk while being in attacking range of some enemy
+good eval: more combined health than enemy
+
+def kite with eval:
+	if in range of enemy, kite
+	else if at risk of being attacked by exactly one enemy:
+		if good eval and attack cooldown < 10 next turn:
+			stay
+		else:
+			kite
+	else if at risk of being attacked by multiple enemies:
+	    kite
+
+def chase with eval:
+	if chasing does not put us at risk of being attacked:
+		chase
+	else if it puts us under attack of exactly one enemy and good eval:
+	    chase
+
+if attack cooldown < 10:
+	if no enemies in range:
+		chase with eval
+	try attack
+
+	kite with eval
+else:
+	kite with eval
+	if movement cooldown < 10 and not at risk of being attacked:
+		if our attack cooldown < 10 next turn:
+			chase with eval
+		else:
+			if chasing does not put us at risk of being attacked, chase

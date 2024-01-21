@@ -1,4 +1,4 @@
-package player10;
+package player11;
 
 import battlecode.common.*;
 
@@ -102,83 +102,13 @@ public class Player extends Robot{
         return target;
     }
 
-
-    public int minDistToTrap(RobotController rc, MapLocation enemyLoc, Direction dir, MapLocation trapLoc) {
-        int minDistToTrap = enemyLoc.distanceSquaredTo(trapLoc);
-        enemyLoc = enemyLoc.add(dir);
-        while (enemyLoc.distanceSquaredTo(trapLoc) < minDistToTrap) {
-            minDistToTrap = enemyLoc.distanceSquaredTo(trapLoc);
-            enemyLoc = enemyLoc.add(dir);
-        }
-        return minDistToTrap;
-    }
-
-    public int evaluateTrap(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation trapLocation) {
-        int eval = 0;
-        for (RobotInfo enemy : nearbyEnemies) {
-            MapLocation lastSeenLoc = lastSeenPrevEnemyLoc.getLoc(enemy.getID());
-            boolean approxSameDir = false;
-            if (lastSeenLoc != null) {
-                approxSameDir = (lastSeenLoc.directionTo(enemy.getLocation()) == enemy.getLocation().directionTo(trapLocation))
-                        ||(lastSeenLoc.directionTo(enemy.getLocation()).rotateLeft() == enemy.getLocation().directionTo(trapLocation))
-                        ||(lastSeenLoc.directionTo(enemy.getLocation()).rotateRight() == enemy.getLocation().directionTo(trapLocation));
-            }
-            if ((approxSameDir || lastSeenLoc == null || lastSeenLoc.distanceSquaredTo(enemy.getLocation()) > 4)) {
-                eval++;
-            }
-        }
-        return eval;
-    }
-
-    public MapLocation chooseTrapLoc(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation[] nearbyAllyTraps, int lowerBound) throws GameActionException {
-        MapLocation[] buildableLocs = rc.getAllLocationsWithinRadiusSquared(rc.getLocation(), 4);
-        int bestEval = lowerBound;
-        MapLocation bestEvalLoc = null;
-        int bestEvalSumDist = Util.BigNum;
-        for (MapLocation buildableLoc : buildableLocs) {
-            if (rc.canBuild(TrapType.EXPLOSIVE, buildableLoc)) {
-                int currEval = evaluateTrap(rc, nearbyEnemies, buildableLoc);
-
-                if (nearbyAllyTraps.length > 0) {
-                    int minAllyTrapDist = Util.BigNum;
-                    for (MapLocation nearbyAllyTrap : nearbyAllyTraps) {
-                        if (nearbyAllyTrap == null) {
-                            break;
-                        }
-                        if (nearbyAllyTrap.distanceSquaredTo(buildableLoc) < minAllyTrapDist) {
-                            minAllyTrapDist = nearbyAllyTrap.distanceSquaredTo(buildableLoc);
-                        }
-                    }
-                    if (minAllyTrapDist <= 2) {
-                        currEval = 0;
-                    }
-                }
-                int sumDist = 0;
-                for (RobotInfo enemy : nearbyEnemies) {
-                    sumDist += enemy.getLocation().distanceSquaredTo(buildableLoc);
-                }
-                if (currEval > bestEval) {
-                    bestEval = currEval;
-                    bestEvalLoc = buildableLoc;
-                    bestEvalSumDist = sumDist;
-                } else if (currEval == bestEval) {
-                    if (sumDist < bestEvalSumDist) {
-                        bestEvalLoc = buildableLoc;
-                        bestEvalSumDist = sumDist;
-                    }
-                }
-            }
-        }
-        return bestEvalLoc;
-    }
-
-    public int evaluateSafety(RobotController rc, MapLocation newLoc,RobotInfo[] nearbyAllies, RobotInfo[] nearbyEnemies) {
+    public int evaluateSafety(MapLocation newLoc,RobotInfo[] nearbyEnemies,RobotInfo[] nearbyAllies) {
         int eval = 0;
         for (RobotInfo nearbyAlly : nearbyAllies) {
-            eval += Math.max(0, GameConstants.VISION_RADIUS_SQUARED - nearbyAlly.getLocation().distanceSquaredTo(newLoc));
+            eval += nearbyAlly.getHealth();
         }
         for (RobotInfo nearbyEnemy : nearbyEnemies) {
-            eval -= Math.max(0, GameConstants.VISION_RADIUS_SQUARED - nearbyEnemy.getLocation().distanceSquaredTo(newLoc));
+            eval -= nearbyEnemy.getHealth();
         }
         return eval;
     }
@@ -213,6 +143,7 @@ public class Player extends Robot{
         MapInfo[] nearbyMapInfos = rc.senseNearbyMapInfos();
         MapLocation[] broadcastFlagLocations = rc.senseBroadcastFlagLocations();
 
+        //fill location if blocked and carrying flag
         if (fillLoc != null) {
             if (rc.canFill(fillLoc)) {
                 rc.fill(fillLoc);
@@ -220,22 +151,25 @@ public class Player extends Robot{
             }
         }
 
+        //pick up flag
         FlagInfo[] nearbyEnemyFlags = rc.senseNearbyFlags(-1, rc.getTeam().opponent());
         for (FlagInfo nearbyEnemyFlag : nearbyEnemyFlags) {
             if (rc.canPickupFlag(nearbyEnemyFlag.getLocation())) {
                 rc.pickupFlag(nearbyEnemyFlag.getLocation());
             }
         }
-        MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
+
+        //go for crumbs
+        MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1); //TODO: only go for crumbs if safe
         MapLocation crumbTarget = Util.chooseClosestLoc(rc.getLocation(), nearbyCrumbs);
         if (crumbTarget != null && nearbyAllies.length-nearbyEnemies.length >= 1) {
             Navigator.moveToward(rc, crumbTarget);
         }
 
-
+        //fight
         fight(rc, nearbyEnemies, nearbyAllies, nearbyMapInfos);
 
-        //movement
+        //escorting
         isEscorting = false;
         for (RobotInfo ally : nearbyAllies) {
             int distSqFromAlly = ally.getLocation().distanceSquaredTo(rc.getLocation());
@@ -251,26 +185,27 @@ public class Player extends Robot{
                 }
             }
         }
-
+        //carrying flag to spawn or moving to enemy
         if (rc.hasFlag()) {
-            lastFlagRound=rc.getRoundNum();
+            lastFlagRound = rc.getRoundNum();
             int flagId = rc.senseNearbyFlags(0)[0].getID();
             MapLocation target = Util.chooseClosestLoc(rc.getLocation(), rc.getAllySpawnLocations());
             fillLoc = Navigator.moveToward(rc, target);
-            for (int i = 0; i < 3; i ++) {
-                if (flagId == Communicator.interpretNumber(rc, Communicator.enemyFlagIDsStart+14*i, 14)) {
+            for (int i = 0; i < 3; i++) {
+                if (flagId == Communicator.interpretNumber(rc, Communicator.enemyFlagIDsStart + 14 * i, 14)) {
                     flagInd = i;
-                    Communicator.writeLocation(rc, Communicator.allyFlagCarriersStart+i*12, rc.getLocation());
-                    Communicator.writeBit(rc, Communicator.isAllyFlagCarrierAliveStart+i, true);
+                    Communicator.writeLocation(rc, Communicator.allyFlagCarriersStart + i * 12, rc.getLocation());
+                    Communicator.writeBit(rc, Communicator.isAllyFlagCarrierAliveStart + i, true);
                 }
             }
-        } else if (!isEscorting) {
+        } else if (!isEscorting && nearbyEnemies.length==0) {
             MapLocation target = null;
             int minDistSq = Util.BigNum;
-            for (int i = 0;i<3;i++) {
+            for (int i = 0; i < 3; i++) {
                 MapLocation loc = sharedEnemyFlagInfo[i];
-                if (loc == null || sharedAllyFlagCarrierInfo[i] != null || Communicator.readBit(rc, Communicator.enemyFlagCapturedStart+i)) continue;
-                int currDistSq =loc.distanceSquaredTo(rc.getLocation());
+                if (loc == null || sharedAllyFlagCarrierInfo[i] != null || Communicator.readBit(rc, Communicator.enemyFlagCapturedStart + i))
+                    continue;
+                int currDistSq = loc.distanceSquaredTo(rc.getLocation());
                 if (currDistSq < minDistSq) {
                     minDistSq = currDistSq;
                     target = loc;
@@ -279,7 +214,7 @@ public class Player extends Robot{
             if (target != null) {
                 Navigator.moveToward(rc, target);
             } else {
-                if (broadcastFlagLocations.length==0) {
+                if (broadcastFlagLocations.length == 0) {
                     target = targetEnemySpawn(rc);
                     Navigator.moveToward(rc, target);
                 } else {
@@ -287,6 +222,172 @@ public class Player extends Robot{
                     Navigator.moveToward(rc, closestBroadcastLoc);
                 }
             }
+        }
+    }
+
+    public int inAttackRange(MapLocation myLoc, RobotInfo[] nearbyEnemies) {
+        int cnt=0;
+        for (RobotInfo enemy : nearbyEnemies) {
+            if (myLoc.distanceSquaredTo(enemy.getLocation()) <= 4) {
+                cnt++;
+            }
+        }
+        return cnt;
+    }
+
+    public int inMoveAttackRange(MapLocation myLoc, RobotInfo[] nearbyEnemies) { //is myLoc or any robot one move away from being within 2 tiles?
+        int cnt = 0;
+        for (RobotInfo enemy : nearbyEnemies) {
+            MapLocation newPos = myLoc.add(myLoc.directionTo(enemy.getLocation()));
+            if (newPos.distanceSquaredTo(enemy.getLocation()) <= 4) {
+                cnt++;
+            }
+        }
+        return cnt;
+    }
+
+    public Direction chase(RobotController rc, RobotInfo[] nearbyEnemies) throws GameActionException{ //this and kite may not return valid dir
+        int numMoveAttackRange = inMoveAttackRange(rc.getLocation(),nearbyEnemies);
+        if (numMoveAttackRange > 0) { //minimize risk while being able to attack
+            int minRisk = Util.BigNum;
+            Direction minRiskDir = null;
+            for (Direction dir : DirectionsUtil.directions) {
+                if (rc.canMove(dir) && inAttackRange(rc.getLocation().add(dir), nearbyEnemies) > 0) {
+                    int currRisk = inMoveAttackRange(rc.getLocation().add(dir), nearbyEnemies);
+                    if (currRisk < minRisk) {
+                        minRisk = currRisk;
+                        minRiskDir = dir;
+                    }
+                }
+            }
+            return minRiskDir;
+        } else {//minimize min dist
+            MapLocation closestRobot = Util.chooseClosestRobot(rc.getLocation(), nearbyEnemies);
+            if (closestRobot != null && rc.canMove(rc.getLocation().directionTo(closestRobot))) {
+                return rc.getLocation().directionTo(closestRobot);
+            } else {
+                return null;//TODO: minimize dist to allies if no enemy robots in range
+            }
+        }
+    }
+
+    public Direction kite(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies) throws GameActionException {
+        int minRisk = Util.BigNum;
+        int minDistToAllies = Util.BigNum;
+        Direction minDir = null;
+
+        for (Direction dir : DirectionsUtil.directions) {
+            if (rc.canMove(dir)) {
+                MapLocation newPos = rc.getLocation().add(dir);
+                int currRisk = inMoveAttackRange(newPos, nearbyEnemies);
+                int currDistToAllies = Util.distanceCombinedRobot(newPos, nearbyAllies);
+                if (currRisk < minRisk) {
+                    minRisk = currRisk;
+                    minDistToAllies = currDistToAllies;
+                    minDir = dir;
+                } else if (currRisk == minRisk) {
+                    if (currDistToAllies < minDistToAllies) {
+                        minDistToAllies = currDistToAllies;
+                        minDir = dir;
+                    }
+                }
+            }
+        }
+        return minDir;
+    }
+
+    public void kiteWithEval(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies, int eval) throws GameActionException {
+        int currAttack = inAttackRange(rc.getLocation(), nearbyEnemies);
+        int currMoveAttack = inMoveAttackRange(rc.getLocation(), nearbyEnemies);
+        Direction currKite = kite(rc,nearbyEnemies,nearbyAllies);
+
+        if (currKite != null) {
+            if (currAttack > 0) {
+                rc.move(currKite);
+                indicatorString+="kite because under attack "+currKite.name()+",";
+            } else if (currMoveAttack == 1) {
+                if (rc.getActionCooldownTurns() - 10 < 10 && eval >= 0) {
+                    //stay
+                } else {
+                    rc.move(currKite);
+                    indicatorString+="kite because risk "+currKite.name()+",";
+                }
+            } else if (currMoveAttack > 1) {
+                rc.move(currKite);
+                indicatorString+="kite because multiple risk "+currKite.name()+",";
+            }
+        }
+    }
+
+    public void chaseWithEval(RobotController rc, RobotInfo[] nearbyEnemies, int eval) throws GameActionException {
+        Direction chaseDir = chase(rc, nearbyEnemies);
+
+        Direction origChase=chaseDir;
+        if (chaseDir != null) {
+            int currAttack = inAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
+            int currMoveAttack = inMoveAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
+
+            if (currMoveAttack == 0) {
+                rc.move(chaseDir);
+                indicatorString+="chase because safe " + origChase.name() + ",";
+            } else if (currAttack == 0 && currMoveAttack <= 1 && eval >= 0) {
+                rc.move(chaseDir);
+                indicatorString+="chase because overpowering " + origChase.name() + ",";
+            }
+        }
+    }
+
+    public void attack(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies, MapInfo[] nearbyMapInfos) throws GameActionException {
+        //trapping
+        MapLocation[] nearbyAllyTraps = new MapLocation[81];
+        int numNearbyAllyTraps= 0;
+        for (MapInfo mapInfo : nearbyMapInfos) {
+            if (mapInfo.getTrapType() != TrapType.NONE) {
+                nearbyAllyTraps[numNearbyAllyTraps] = mapInfo.getMapLocation();
+                numNearbyAllyTraps++;
+            }
+        }
+        MapLocation bestTrapLoc = Traps.chooseTrapLoc(rc, nearbyEnemies, nearbyAllyTraps, 3, lastSeenPrevEnemyLoc);
+        if (bestTrapLoc != null && rc.canBuild(TrapType.EXPLOSIVE, bestTrapLoc)) {
+            rc.build(TrapType.EXPLOSIVE, bestTrapLoc);
+        }
+
+        //attacking micro
+        int eval = evaluateSafety(rc.getLocation(), nearbyEnemies, nearbyAllies);
+
+        if (rc.getActionCooldownTurns() < 10) {
+            if (inAttackRange(rc.getLocation(), nearbyEnemies) == 0) {
+                chaseWithEval(rc,nearbyEnemies,eval);
+            }
+
+            MapLocation attackTarget = chooseBestAttackTarget(rc, nearbyEnemies, true);
+            if (attackTarget!= null && rc.canAttack(attackTarget)) {
+                rc.attack(attackTarget);
+                indicatorString+="attack,";
+            }
+
+            kiteWithEval(rc,nearbyEnemies,nearbyAllies,eval);
+        } else {
+            kiteWithEval(rc,nearbyEnemies,nearbyAllies,eval);
+            if (rc.getMovementCooldownTurns() < 10 && inMoveAttackRange(rc.getLocation(),nearbyEnemies)==0) {
+                if (rc.getActionCooldownTurns()-10 < 10) {
+                    chaseWithEval(rc,nearbyEnemies,eval);
+                } else {
+                    Direction chaseDir = chase(rc, nearbyEnemies);
+                    Direction origChase=chaseDir;
+                    if (chaseDir != null) {
+                        int currMoveAttack = inMoveAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
+
+                        if (currMoveAttack == 0) {
+                            indicatorString+="chase because no attack and safe " + origChase.name()+",";
+                            rc.move(chaseDir);
+                        }
+                    }
+                }
+            }
+        }
+        if (rc.getMovementCooldownTurns()<10){
+            indicatorString+="stay";
         }
     }
 
@@ -299,55 +400,17 @@ public class Player extends Robot{
             }
         }
 
-        MapLocation[] nearbyAllyTraps = new MapLocation[100];
-        int numNearbyAllyTraps= 0;
-        for (MapInfo mapInfo : nearbyMapInfos) {
-            if (mapInfo.getTrapType() != TrapType.NONE) {
-                nearbyAllyTraps[numNearbyAllyTraps] = mapInfo.getMapLocation();
-                numNearbyAllyTraps++;
-            }
-        }
 
 
-
-        //chasing, evading
+        //chasing enemy flag carrier
         MapLocation closestEnemyLoc = chooseBestAttackTarget(rc, nearbyEnemies, false);
-        if (!isEscorting && !rc.hasFlag() && closestEnemyLoc != null && (nearbyAllies.length-nearbyEnemies.length >= 1 || numNearbyEnemyFlagCarriers > 0)) {//TODO: don't chase if can attack
+        if (!isEscorting && !rc.hasFlag() && closestEnemyLoc != null && numNearbyEnemyFlagCarriers > 0) {//TODO: don't chase if can attack
             indicatorString += "chasing " + closestEnemyLoc+"|";
             Navigator.moveToward(rc, closestEnemyLoc);
-        } else if (!isEscorting && !rc.hasFlag() && nearbyAllies.length-nearbyEnemies.length <1 && numNearbyEnemyFlagCarriers == 0) { //TODO: evading AFTER attack
-            //TODO: bait into ally trap
-            Direction safestDir = null;
-            int safestDirEval = -Util.BigNum;
-            for (Direction dir : DirectionsUtil.directions) {
-                if (Navigator.canMove(rc, dir)) {
-                    int currEval = evaluateSafety(rc, rc.getLocation().add(dir), nearbyAllies, nearbyEnemies);
-                    if (currEval > safestDirEval) {
-                        safestDirEval = currEval;
-                        safestDir = dir;
-                    }
-                }
-            }
-            if (safestDir != null) {
-                Navigator.tryMove(rc, safestDir);
-            }
         }
 
-        //trapping
-        MapLocation bestTrapLoc = chooseTrapLoc(rc, nearbyEnemies, nearbyAllyTraps, 3);
-        if (bestTrapLoc != null && rc.canBuild(TrapType.EXPLOSIVE, bestTrapLoc)) {
-            rc.build(TrapType.EXPLOSIVE, bestTrapLoc);
-        }
+        attack(rc, nearbyEnemies, nearbyAllies, nearbyMapInfos);
 
-        //attacking
-        MapLocation attackTarget = chooseBestAttackTarget(rc, nearbyEnemies, true);
-        if (attackTarget != null) {
-            indicatorString+="attack " +attackTarget +"|";
-            rc.setIndicatorDot(attackTarget, 200, 0, 0);
-        }
-        if (attackTarget!= null && rc.canAttack(attackTarget)) {
-            rc.attack(attackTarget);
-        }
 
         //healing
         if (rc.getActionCooldownTurns() < 10 && (closestEnemyLoc == null || closestEnemyLoc.distanceSquaredTo(rc.getLocation()) >= 16)) { //TODO: tune
