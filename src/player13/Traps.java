@@ -1,7 +1,7 @@
-package player12;
+package player13;
 
 import battlecode.common.*;
-import player12.fast.FastIntLocMap;
+import player13.fast.FastIntLocMap;
 
 public class Traps {
 
