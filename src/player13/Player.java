@@ -198,15 +198,25 @@ public class Player extends Robot{
         isEscorting = false;
         for (RobotInfo ally : nearbyAllies) {
             int distSqFromAlly = ally.getLocation().distanceSquaredTo(rc.getLocation());
+
             if (ally.hasFlag()) {
-                isEscorting = true;
-                Direction direction = ally.getLocation().directionTo(Util.chooseClosestLoc(ally.getLocation(), rc.getAllySpawnLocations()));
-                int distSqFromAllyAfterAllyMoves = ally.getLocation().add(direction).distanceSquaredTo(rc.getLocation());
-                if (distSqFromAllyAfterAllyMoves < distSqFromAlly && ally.getLocation().distanceSquaredTo(rc.getLocation()) < 4) {
-                    Navigator.tryMove(rc, direction);
+                int numAlreadyEscorting = 0;
+                for (RobotInfo ally2 : nearbyAllies) {
+                    if (ally2.getLocation().distanceSquaredTo(ally.getLocation()) <= GameConstants.VISION_RADIUS_SQUARED) {
+                        numAlreadyEscorting++;
+                    }
                 }
-                if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
-                    Navigator.tryMove(rc, direction);
+                if (numAlreadyEscorting < 8) { //TODO: use shared array instead so further away allies can join escort
+                    isEscorting = true;
+                    Direction direction = ally.getLocation().directionTo(Util.chooseClosestLoc(ally.getLocation(), rc.getAllySpawnLocations()));
+                    int distSqFromAllyAfterAllyMoves = ally.getLocation().add(direction).distanceSquaredTo(rc.getLocation());
+                    if (distSqFromAllyAfterAllyMoves < distSqFromAlly && ally.getLocation().distanceSquaredTo(rc.getLocation()) < 4) {
+                        Navigator.tryMove(rc, direction);
+                    }
+                    if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
+                        Navigator.tryMove(rc, direction);
+                    }
+                    break;
                 }
             }
         }
@@ -383,9 +393,17 @@ public class Player extends Robot{
                 numNearbyAllyTraps++;
             }
         }
-        MapLocation bestTrapLoc = Traps.chooseTrapLoc(rc, nearbyEnemies, nearbyAllyTraps, 3, lastSeenPrevEnemyLoc);
-        if (bestTrapLoc != null && rc.canBuild(TrapType.EXPLOSIVE, bestTrapLoc)) {
-            rc.build(TrapType.EXPLOSIVE, bestTrapLoc);
+
+        if (nearbyAllies.length >= 5) {
+            MapLocation bestTrapLoc = Traps.chooseTrapLoc(rc, nearbyEnemies, nearbyAllyTraps, 3, lastSeenPrevEnemyLoc, TrapType.STUN);
+            if (bestTrapLoc != null && rc.canBuild(TrapType.STUN, bestTrapLoc)) {
+                rc.build(TrapType.STUN, bestTrapLoc);
+            }
+        } else {
+            MapLocation bestTrapLoc = Traps.chooseTrapLoc(rc, nearbyEnemies, nearbyAllyTraps, 3, lastSeenPrevEnemyLoc, TrapType.EXPLOSIVE);
+            if (bestTrapLoc != null && rc.canBuild(TrapType.EXPLOSIVE, bestTrapLoc)) {
+                rc.build(TrapType.EXPLOSIVE, bestTrapLoc);
+            }
         }
 
         //attacking micro

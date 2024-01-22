@@ -23,13 +23,23 @@ public class Traps {
         return eval;
     }
 
-    public static MapLocation chooseTrapLoc(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation[] nearbyAllyTraps, int lowerBound, FastIntLocMap lastSeenPrevEnemyLoc) throws GameActionException {
+    public static MapLocation chooseTrapLoc(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation[] nearbyAllyTraps, int lowerBound, FastIntLocMap lastSeenPrevEnemyLoc, TrapType trapType) throws GameActionException {
         MapLocation[] buildableLocs = rc.getAllLocationsWithinRadiusSquared(rc.getLocation(), 4);
         int bestEval = lowerBound;
         MapLocation bestEvalLoc = null;
         int bestEvalSumDist = Util.BigNum;
+
+
+        int minSpacing = 1;
+        if (rc.getCrumbs() < trapType.buildCost*10 || nearbyEnemies.length < 7) {
+            minSpacing = 2;
+        }
+        if (rc.getCrumbs() < trapType.buildCost || nearbyEnemies.length < 4) {
+            minSpacing = 4;
+        }
+
         for (MapLocation buildableLoc : buildableLocs) {
-            if (rc.canBuild(TrapType.EXPLOSIVE, buildableLoc)) {
+            if (rc.canBuild(trapType, buildableLoc)) {
                 int currEval = evaluateTrap(rc, nearbyEnemies, buildableLoc, lastSeenPrevEnemyLoc);
 
                 if (nearbyAllyTraps.length > 0) {
@@ -42,7 +52,7 @@ public class Traps {
                             minAllyTrapDist = nearbyAllyTrap.distanceSquaredTo(buildableLoc);
                         }
                     }
-                    if (minAllyTrapDist <= 2) {
+                    if (minAllyTrapDist < minSpacing) {
                         currEval = 0;
                     }
                 }

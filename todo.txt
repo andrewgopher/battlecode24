@@ -37,3 +37,4 @@ spreading out along dam
 moving flags
 escorting limit (registration in shared array)
 stun traps are now meta?
+build explosive trap when evading, stun when attacking/even position
