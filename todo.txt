@@ -36,5 +36,11 @@ carrying flag to best location (safety, proximity) (even better, avoiding danger
 spreading out along dam
 moving flags
 escorting limit (registration in shared array)
-stun traps are now meta?
 build explosive trap when evading, stun when attacking/even position
+
+AFTER HUGE TRAP UPGRADE:
+helping ally flag carriers (registering in shared array)
+pathfinding (DefaultHuge?)
+duck at spawn
+build explosive trap when evading, stun when attacking/even position
+HELPING TARGET ENEMY FLAG CARRIERS (PREDICT POSITION AND CHASE)
