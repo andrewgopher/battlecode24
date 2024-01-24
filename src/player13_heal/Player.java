@@ -141,7 +141,7 @@ public class Player extends Robot{
         while (!a.equals(b)) {
             Direction dir = a.directionTo(b);
             if (rc.canSenseLocation(a.add(dir))) {
-                if (rc.sensePassability(a.add(dir))) {
+                if (!rc.senseMapInfo(a.add(dir)).isWall()) {
                     a=a.add(dir);
                 } else {
                     return true;

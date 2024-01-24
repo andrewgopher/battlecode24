@@ -8,6 +8,8 @@ import battlecode.common.Team;
 public class Util {
     static int BigNum = 10000000;
 
+    static int[] healLevelCoolDown = {30,29,27,26,26,26,26,23};
+
     public static Team intToTeam(int t) {
         if (t==1) {
             return Team.A;

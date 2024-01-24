@@ -102,17 +102,6 @@ public class Player extends Robot{
         return target;
     }
 
-    public int evaluateSafety(MapLocation newLoc,RobotInfo[] nearbyEnemies,RobotInfo[] nearbyAllies) {
-        int eval = 0;
-        for (RobotInfo nearbyAlly : nearbyAllies) {
-            eval += nearbyAlly.getHealth();
-        }
-        for (RobotInfo nearbyEnemy : nearbyEnemies) {
-            eval -= nearbyEnemy.getHealth();
-        }
-        return eval;
-    }
-
     public MapLocation chooseBestAttackTarget(RobotController rc, RobotInfo[] nearbyEnemies, boolean mustBeAttackable) throws GameActionException {
         int minEnemyHealth=1001;
         MapLocation attackTarget = null;
@@ -141,7 +130,7 @@ public class Player extends Robot{
         while (!a.equals(b)) {
             Direction dir = a.directionTo(b);
             if (rc.canSenseLocation(a.add(dir))) {
-                if (rc.sensePassability(a.add(dir))) {
+                if (!rc.senseMapInfo(a.add(dir)).isWall()) {
                     a=a.add(dir);
                 } else {
                     return true;
@@ -343,40 +332,26 @@ public class Player extends Robot{
         return minDir;
     }
 
-    public void kiteWithEval(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies, int eval) throws GameActionException {
-        int currAttack = inAttackRange(rc.getLocation(), nearbyEnemies);
+    public void kiteWithEval(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies) throws GameActionException {
         int currMoveAttack = inMoveAttackRange(rc.getLocation(), nearbyEnemies);
         Direction currKite = kite(rc,nearbyEnemies,nearbyAllies);
 
-        int numHealthierAllies = 0;
-        for (RobotInfo ally : nearbyAllies) {
-            if (ally.getHealth() > rc.getHealth()) {
-                numHealthierAllies++;
-            }
-        }
-
         if (currKite != null) {
-            if (currAttack > eval/1000 || (nearbyAllies.length>0 && (double)numHealthierAllies/(double)nearbyAllies.length >= 0.65f)) {
+            if ((currMoveAttack == 1 && rc.getActionCooldownTurns()-10>=10)  || (currMoveAttack>1)) {
                 rc.move(currKite);
                 indicatorString+="kite "+currKite.name()+",";
             }
         }
     }
 
-    public void chaseWithEval(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies, int eval) throws GameActionException {
+    public void chaseWithEval(RobotController rc, RobotInfo[] nearbyEnemies) throws GameActionException {
         Direction chaseDir = chase(rc, nearbyEnemies);
 //        indicatorString+="try chase: "+chaseDir+",";
-        int numHealthierAllies = 0;
-        for (RobotInfo ally : nearbyAllies) {
-            if (ally.getHealth() > rc.getHealth()) {
-                numHealthierAllies++;
-            }
-        }
 
         if (chaseDir != null) {
-            int currAttack = inAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
+            int currMoveAttack = inMoveAttackRange(rc.getLocation().add(chaseDir), nearbyEnemies);
 
-            if ((currAttack <= eval/1000) || (nearbyAllies.length > 0 && (double)numHealthierAllies/(double)nearbyAllies.length <= 0.35f)) {
+            if ((currMoveAttack <= 1 && rc.getActionCooldownTurns()-10<10) || currMoveAttack==0) {
                 Navigator.tryMove(rc,chaseDir);
                 indicatorString+="chase " + chaseDir.name() + ",";
             }
@@ -407,41 +382,28 @@ public class Player extends Robot{
         }
 
         //attacking micro
-        int eval = evaluateSafety(rc.getLocation(), nearbyEnemies, nearbyAllies);
-        indicatorString+="eval " + eval+",";
 
-//        if (inAttackRange(rc.getLocation(), nearbyEnemies) == 0) {
-//            chaseWithEval(rc,nearbyEnemies,nearbyAllies,eval);
-//        }
-//
-//        MapLocation attackTarget = chooseBestAttackTarget(rc, nearbyEnemies, true);
-//        if (attackTarget!= null && rc.canAttack(attackTarget)) {
-//            rc.attack(attackTarget);
-//            indicatorString+="attack,";
-//            Direction currKite = kite(rc,nearbyEnemies, nearbyAllies);
-//            if (currKite != null) {
-//                if (rc.canMove(currKite)) {
-//                    rc.move(currKite);
-//                }
-//            }
-//        } else {
-//            kiteWithEval(rc, nearbyEnemies, nearbyAllies, eval);
-//        }
         if (rc.getActionCooldownTurns() < 10) {
             if (inAttackRange(rc.getLocation(), nearbyEnemies) == 0) {
-                chaseWithEval(rc,nearbyEnemies,nearbyAllies,eval);
+                Direction chaseDir =chase(rc,nearbyEnemies);
+                if (chaseDir != null && Navigator.canMove(rc,chaseDir)) {
+                    Navigator.tryMove(rc,chaseDir);
+                }
             }
 
             MapLocation attackTarget = chooseBestAttackTarget(rc, nearbyEnemies, true);
             if (attackTarget!= null && rc.canAttack(attackTarget)) {
                 rc.attack(attackTarget);
                 indicatorString+="attack,";
-            }
 
-            kiteWithEval(rc,nearbyEnemies,nearbyAllies,eval);
+                Direction kiteDir = kite(rc,nearbyEnemies, nearbyAllies);
+                if (kiteDir != null && Navigator.canMove(rc,kiteDir)) {
+                    Navigator.tryMove(rc,kiteDir);
+                }
+            }
         } else {
-            kiteWithEval(rc,nearbyEnemies,nearbyAllies,eval);
-            chaseWithEval(rc,nearbyEnemies,nearbyAllies,eval);
+            kiteWithEval(rc,nearbyEnemies,nearbyAllies);
+            chaseWithEval(rc,nearbyEnemies);
         }
         if (rc.getMovementCooldownTurns()<10){
             indicatorString+="no micro movement,";
@@ -467,7 +429,6 @@ public class Player extends Robot{
 
 
         MapLocation closestEnemyLoc = Util.chooseClosestRobot(rc.getLocation(),nearbyEnemies);
-
         if (rc.getActionCooldownTurns() < 10 && (closestEnemyLoc== null || closestEnemyLoc.distanceSquaredTo(rc.getLocation()) > 16)) { //TODO: tune
             int minAllyHealth = 1000;
             MapLocation healTarget = null;
@@ -483,6 +444,24 @@ public class Player extends Robot{
             }
         }
         attack(rc, nearbyEnemies, nearbyAllies, nearbyMapInfos);
+
+//        alternate healing code (this doesn't heal enough)
+//        int currHealCyc = (rc.getActionCooldownTurns()+Util.healLevelCoolDown[rc.getLevel(SkillType.HEAL)])/10;
+//
+//        if (rc.getActionCooldownTurns() < 10 && (closestEnemyLoc== null || stepsToAttack(rc.getLocation(), closestEnemyLoc)>= currHealCyc || healthierAllyRatio >= 0.65f)) { //TODO: only heal when not in enemy move attack range? and put this after attack()
+//            int minAllyHealth = 1000;
+//            MapLocation healTarget = null;
+//            for (RobotInfo ally : nearbyAllies) {
+//                if (ally.getHealth() < 1000&& ally.getHealth() < minAllyHealth && rc.canHeal(ally.getLocation())) {
+//                    minAllyHealth = ally.getHealth();
+//                    healTarget = ally.getLocation();
+//                }
+//            }
+//            if (healTarget != null && rc.canHeal(healTarget)) {
+//                indicatorString+="heal " + rc.getLocation() + " " + closestEnemyLoc+",";
+//                rc.heal(healTarget);
+//            }
+//        }
     }
 
     public void setup(RobotController rc) throws GameActionException {
