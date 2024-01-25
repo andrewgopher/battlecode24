@@ -271,12 +271,21 @@ public class Player extends Robot{
     public int inMoveAttackRange(MapLocation myLoc, RobotInfo[] nearbyEnemies) { //is myLoc or any robot one move away from being within 2 tiles?
         int cnt = 0;
         for (RobotInfo enemy : nearbyEnemies) {
-            for (Direction dir : DirectionsUtil.directions) {
-                MapLocation newPos = myLoc.add(dir);
-                if (newPos.distanceSquaredTo(enemy.getLocation()) <= 4) {
-                    cnt++;
-                    break;
-                }
+            Direction dir  =myLoc.directionTo(enemy.getLocation());
+            MapLocation newPos = myLoc.add(dir);
+            if (newPos.distanceSquaredTo(enemy.getLocation()) <= 4) {
+                cnt++;
+                continue;
+            }
+            newPos = myLoc.add(dir.rotateLeft());
+            if (newPos.distanceSquaredTo(enemy.getLocation()) <= 4) {
+                cnt++;
+                continue;
+            }
+            newPos=myLoc.add(dir.rotateRight());
+            if (newPos.distanceSquaredTo(enemy.getLocation()) <= 4) {
+                cnt++;
+                continue;
             }
         }
         return cnt;
@@ -325,6 +334,9 @@ public class Player extends Robot{
             if (rc.canMove(dir)) {
                 MapLocation newPos = rc.getLocation().add(dir);
                 int currRisk = inMoveAttackRange(newPos, nearbyEnemies);
+                if (currRisk > minRisk) {
+                    continue;
+                }
                 int currDistToAllies = Util.distanceCombinedRobot(newPos, nearbyAllies);
                 if (currRisk < minRisk) {
                     minRisk = currRisk;
@@ -346,7 +358,7 @@ public class Player extends Robot{
         Direction currKite = kite(rc,nearbyEnemies,nearbyAllies);
 
         if (currKite != null) {
-            if ((currMoveAttack == 1 && rc.getActionCooldownTurns()-10>=10)  || (currMoveAttack>1)) {
+            if (((currMoveAttack == 1 && rc.getActionCooldownTurns()-10>=10)  || (currMoveAttack>1))&&rc.canMove(currKite)) {
                 rc.move(currKite);
                 indicatorString+="kite "+currKite.name()+",";
             }

@@ -4,9 +4,7 @@ import battlecode.common.*;
 import player15.fast.FastIntLocMap;
 
 public class Traps {
-
-
-    public static int evaluateTrap(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation trapLocation, FastIntLocMap lastSeenPrevEnemyLoc) {
+    public static int evaluateTrapByDir(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation trapLocation, FastIntLocMap lastSeenPrevEnemyLoc) {
         int eval = 0;
         for (RobotInfo enemy : nearbyEnemies) {
             MapLocation lastSeenLoc = lastSeenPrevEnemyLoc.getLoc(enemy.getID());
@@ -40,7 +38,12 @@ public class Traps {
 
         for (MapLocation buildableLoc : buildableLocs) {
             if (rc.canBuild(trapType, buildableLoc)) {
-                int currEval = evaluateTrap(rc, nearbyEnemies, buildableLoc, lastSeenPrevEnemyLoc);
+                int currEval = 0;
+                if (trapType==TrapType.STUN) {
+                    currEval =evaluateTrapByDir(rc, nearbyEnemies, buildableLoc, lastSeenPrevEnemyLoc); //TODO: evaluate stun not by enemy direction but by proximity
+                } else if (trapType == TrapType.EXPLOSIVE) {
+                    currEval = evaluateTrapByDir(rc, nearbyEnemies, buildableLoc, lastSeenPrevEnemyLoc);
+                }
 
                 if (nearbyAllyTraps.length > 0) {
                     int minAllyTrapDist = Util.BigNum;

@@ -34,8 +34,8 @@ public class Util {
 
     public static int distanceCombinedRobot(MapLocation loc, RobotInfo[] locs) {
         int result = 0;
-        for (RobotInfo currLoc : locs) {
-            result += loc.distanceSquaredTo(currLoc.getLocation());
+        for (int i =0 ; i < locs.length; i ++) {
+            result += loc.distanceSquaredTo(locs[i].getLocation());
         }
         return result;
     }
