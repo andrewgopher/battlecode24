@@ -160,7 +160,7 @@ public class Player extends Robot{
             if (rc.canFill(fillLoc)) {
                 rc.fill(fillLoc);
                 fillLoc = null;
-            } else if (rc.getActionCooldownTurns()>= 10 || rc.getCrumbs() < GameConstants.DIG_COST) {
+            } else if ((rc.getActionCooldownTurns()>= 10 || rc.getCrumbs() < GameConstants.DIG_COST) && rc.getLocation().distanceSquaredTo(fillLoc)<=2) {
                 return;
             } else {
                 fillLoc = null;
@@ -172,8 +172,6 @@ public class Player extends Robot{
         for (FlagInfo nearbyEnemyFlag : nearbyEnemyFlags) {
             if (rc.canPickupFlag(nearbyEnemyFlag.getLocation())) {
                 rc.pickupFlag(nearbyEnemyFlag.getLocation());
-            } else if (!nearbyEnemyFlag.isPickedUp()) {
-                Navigator.moveToward(rc, nearbyEnemyFlag.getLocation());
             }
         }
 
@@ -408,6 +406,7 @@ public class Player extends Robot{
             if (inAttackRange(rc.getLocation(), nearbyEnemies) == 0) {
                 Direction chaseDir =chase(rc,nearbyEnemies);
                 if (chaseDir != null && Navigator.canMove(rc,chaseDir)) {
+                    indicatorString+="chase " + chaseDir+",";
                     Navigator.tryMove(rc,chaseDir);
                 }
             }
@@ -419,6 +418,7 @@ public class Player extends Robot{
 
                 Direction kiteDir = kite(rc,nearbyEnemies, nearbyAllies);
                 if (kiteDir != null && Navigator.canMove(rc,kiteDir)) {
+                    indicatorString+="kite " + kiteDir+",";
                     Navigator.tryMove(rc,kiteDir);
                 }
             }
@@ -468,8 +468,13 @@ public class Player extends Robot{
 
 //        alternate healing code (this doesn't heal enough)
 //        int currHealCyc = (rc.getActionCooldownTurns()+Util.healLevelCoolDown[rc.getLevel(SkillType.HEAL)])/10;
+//        indicatorString+=currHealCyc;
+//        if (closestEnemyLoc != null) {
+//            indicatorString += " " + stepsToAttack(rc, rc.getLocation(), closestEnemyLoc);
+//        }
+//        indicatorString+=",";
 //
-//        if (rc.getActionCooldownTurns() < 10 && (closestEnemyLoc== null || stepsToAttack(rc.getLocation(), closestEnemyLoc)>= currHealCyc || healthierAllyRatio >= 0.65f)) { //TODO: only heal when not in enemy move attack range? and put this after attack()
+//        if (rc.getActionCooldownTurns() < 10 && (closestEnemyLoc== null || stepsToAttack(rc, rc.getLocation(), closestEnemyLoc)>= currHealCyc)) { //TODO: only heal when not in enemy move attack range? and put this after attack()
 //            int minAllyHealth = 1000;
 //            MapLocation healTarget = null;
 //            for (RobotInfo ally : nearbyAllies) {
@@ -479,10 +484,26 @@ public class Player extends Robot{
 //                }
 //            }
 //            if (healTarget != null && rc.canHeal(healTarget)) {
-//                indicatorString+="heal " + rc.getLocation() + " " + closestEnemyLoc+",";
+//                indicatorString+="heal" +",";
 //                rc.heal(healTarget);
 //            }
 //        }
+    }
+
+    public int getNumSteps(MapLocation a, MapLocation b) {
+        return Math.max(Math.abs(a.x-b.x),Math.abs(a.y-b.y));
+    }
+
+    public int stepsToAttack(RobotController rc, MapLocation a, MapLocation b) throws GameActionException {
+        MapLocation[] locs = rc.getAllLocationsWithinRadiusSquared(b, 4);
+        int minSteps = Util.BigNum;
+        for (MapLocation loc : locs) {
+            int currSteps = getNumSteps(a,loc);
+            if (currSteps < minSteps) {
+                minSteps = currSteps;
+            }
+        }
+        return minSteps;
     }
 
     public void setup(RobotController rc) throws GameActionException {
