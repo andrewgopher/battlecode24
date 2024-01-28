@@ -4,7 +4,7 @@ import battlecode.common.*;
 import player16.fast.FastIntLocMap;
 
 public class Traps {
-    public static int evaluateTrapByDir(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation trapLocation, FastIntLocMap lastSeenPrevEnemyLoc) {
+    public static int evaluateTrapByDir(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation trapLocation, FastIntLocMap lastSeenPrevEnemyLoc) throws GameActionException{
         int eval = 0;
         for (RobotInfo enemy : nearbyEnemies) {
             MapLocation lastSeenLoc = lastSeenPrevEnemyLoc.getLoc(enemy.getID());
@@ -14,7 +14,7 @@ public class Traps {
                         ||(lastSeenLoc.directionTo(enemy.getLocation()).rotateLeft() == enemy.getLocation().directionTo(trapLocation))
                         ||(lastSeenLoc.directionTo(enemy.getLocation()).rotateRight() == enemy.getLocation().directionTo(trapLocation));
             }
-            if ((approxSameDir || lastSeenLoc == null || lastSeenLoc.distanceSquaredTo(enemy.getLocation()) > 4)) {
+            if ((approxSameDir || lastSeenLoc == null || lastSeenLoc.distanceSquaredTo(enemy.getLocation()) > 4) && !Util.isLineBlocked(rc, trapLocation,enemy.getLocation())) {
                 eval++;
             }
         }

@@ -126,27 +126,27 @@ public class Player extends Robot{
         }
         return attackTarget;
     }
-    public boolean isLineBlocked(RobotController rc, MapLocation a, MapLocation b) throws GameActionException{
-        while (!a.equals(b)) {
-            Direction dir = a.directionTo(b);
-            if (rc.canSenseLocation(a.add(dir))) {
-                if (!rc.senseMapInfo(a.add(dir)).isWall()) {
-                    a=a.add(dir);
-                } else {
-                    return true;
-                }
-            } else {
-                break;
-            }
-        }
-        return false;
-    }
+//    public boolean isLineBlocked(RobotController rc, MapLocation a, MapLocation b) throws GameActionException{
+//        while (!a.equals(b)) {
+//            Direction dir = a.directionTo(b);
+//            if (rc.canSenseLocation(a.add(dir))) {
+//                if (!rc.senseMapInfo(a.add(dir)).isWall()) {
+//                    a=a.add(dir);
+//                } else {
+//                    return true;
+//                }
+//            } else {
+//                break;
+//            }
+//        }
+//        return false;
+//    }
     public void offense(RobotController rc) throws GameActionException{
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
         int numOpenEnemies = 0;
         for (RobotInfo enemy : nearbyEnemies) {
-            if (!isLineBlocked(rc, rc.getLocation(), enemy.getLocation())) {
+            if (!Util.isLineBlocked(rc, rc.getLocation(), enemy.getLocation())) {
                 numOpenEnemies++;
             }
         }
@@ -450,44 +450,54 @@ public class Player extends Robot{
 
 
         MapLocation closestEnemyLoc = Util.chooseClosestRobot(rc.getLocation(),nearbyEnemies);
-        if (rc.getActionCooldownTurns() < 10 && (closestEnemyLoc== null || closestEnemyLoc.distanceSquaredTo(rc.getLocation()) > 16)) { //TODO: tune
-            int minAllyHealth = 1000;
-            MapLocation healTarget = null;
-            for (RobotInfo ally : nearbyAllies) {
-                if (ally.getHealth() < 1000&& ally.getHealth() < minAllyHealth && rc.canHeal(ally.getLocation())) {
-                    minAllyHealth = ally.getHealth();
-                    healTarget = ally.getLocation();
+
+//        alternate healing code (this doesn't heal enough)
+        if (rc.getActionCooldownTurns() < 10) {
+            int currHealCyc = (rc.getActionCooldownTurns() + Util.healLevelCoolDown[rc.getLevel(SkillType.HEAL)]) / 10;
+            indicatorString += currHealCyc;
+            MapLocation currLoc = rc.getLocation();
+            if (closestEnemyLoc != null) {
+                for (int i = 0; i < currHealCyc-1; i++) {
+                    if (currLoc.distanceSquaredTo(closestEnemyLoc) <= 4) break;
+                    int minDist = Util.BigNum;
+                    Direction minDistDir = null;
+                    for (Direction dir : DirectionsUtil.directions) {
+                        MapLocation newLoc = currLoc.add(dir);
+                        if (!rc.canSenseLocation(newLoc) || !rc.sensePassability(newLoc) || rc.senseRobotAtLocation(newLoc) != null) {
+                            continue;
+                        }
+                        int currDist = currLoc.add(dir).distanceSquaredTo(closestEnemyLoc);
+                        if (currDist < minDist) {
+                            minDistDir = dir;
+                            minDist = currDist;
+                        }
+                    }
+                    if (minDistDir != null) {
+                        currLoc = currLoc.add(minDistDir);
+                    }
+                    indicatorString += " " + currLoc;
                 }
             }
-            if (healTarget != null && rc.canHeal(healTarget)) {
-                indicatorString+="heal,";
-                rc.heal(healTarget);
+            indicatorString += ",";
+
+            if (closestEnemyLoc == null || currLoc.distanceSquaredTo(closestEnemyLoc) > 4) {
+                int minAllyHealth = 1000;
+                MapLocation healTarget = null;
+                for (RobotInfo ally : nearbyAllies) {
+                    if (ally.getHealth() < 1000 && ally.getHealth() < minAllyHealth && rc.canHeal(ally.getLocation())) {
+                        minAllyHealth = ally.getHealth();
+                        healTarget = ally.getLocation();
+                    }
+                }
+                if (healTarget != null && rc.canHeal(healTarget)) {
+                    indicatorString += "heal" + ",";
+                    rc.heal(healTarget);
+                }
             }
         }
         attack(rc, nearbyEnemies, nearbyAllies, nearbyMapInfos);
 
-//        alternate healing code (this doesn't heal enough)
-//        int currHealCyc = (rc.getActionCooldownTurns()+Util.healLevelCoolDown[rc.getLevel(SkillType.HEAL)])/10;
-//        indicatorString+=currHealCyc;
-//        if (closestEnemyLoc != null) {
-//            indicatorString += " " + stepsToAttack(rc, rc.getLocation(), closestEnemyLoc);
-//        }
-//        indicatorString+=",";
-//
-//        if (rc.getActionCooldownTurns() < 10 && (closestEnemyLoc== null || stepsToAttack(rc, rc.getLocation(), closestEnemyLoc)>= currHealCyc)) { //TODO: only heal when not in enemy move attack range? and put this after attack()
-//            int minAllyHealth = 1000;
-//            MapLocation healTarget = null;
-//            for (RobotInfo ally : nearbyAllies) {
-//                if (ally.getHealth() < 1000&& ally.getHealth() < minAllyHealth && rc.canHeal(ally.getLocation())) {
-//                    minAllyHealth = ally.getHealth();
-//                    healTarget = ally.getLocation();
-//                }
-//            }
-//            if (healTarget != null && rc.canHeal(healTarget)) {
-//                indicatorString+="heal" +",";
-//                rc.heal(healTarget);
-//            }
-//        }
+
     }
 
     public int getNumSteps(MapLocation a, MapLocation b) {

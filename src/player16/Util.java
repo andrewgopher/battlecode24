@@ -1,9 +1,6 @@
 package player16;
 
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
-import battlecode.common.RobotInfo;
-import battlecode.common.Team;
+import battlecode.common.*;
 
 public class Util {
     static int BigNum = 10000000;
@@ -18,6 +15,22 @@ public class Util {
         } else {
             return Team.NEUTRAL;
         }
+    }
+
+    public static boolean isLineBlocked(RobotController rc, MapLocation a, MapLocation b) throws GameActionException {
+        while (!a.equals(b)) {
+            Direction dir = a.directionTo(b);
+            if (rc.canSenseLocation(a.add(dir))) {
+                if (!rc.senseMapInfo(a.add(dir)).isWall()) {
+                    a=a.add(dir);
+                } else {
+                    return true;
+                }
+            } else {
+                break;
+            }
+        }
+        return false;
     }
 
     public static boolean onBorder(RobotController rc) {
