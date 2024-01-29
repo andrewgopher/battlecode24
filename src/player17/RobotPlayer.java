@@ -41,7 +41,7 @@ public strictfp class RobotPlayer {
                             }
                         }
                     }
-                    MapLocation target = player.targetEnemySpawn(rc);
+                    MapLocation target = player.getClosestEnemySpawn(rc,rc.getLocation());
                     Direction dirToSpawn = rc.getLocation().directionTo(target);
                     boolean isBlockedByRobot = false;
                     if (rc.canSenseLocation(rc.getLocation().add(dirToSpawn))) {

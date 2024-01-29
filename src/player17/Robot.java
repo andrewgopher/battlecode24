@@ -12,6 +12,7 @@ public class Robot {
     static MapLocation[] sharedAllyFlagInfo =  new MapLocation[3];
     static MapLocation[] sharedEnemyFlagInfo =  new MapLocation[3];
     static MapLocation[] sharedAllyFlagCarrierInfo = new MapLocation[3];
+    static MapLocation[] sharedEnemyFlagCarrierInfo = new MapLocation[3];
     static boolean[] symmetries= {true, true, true}; //rot, hor, vert
 
     static MapLocation spawnPos;
@@ -22,8 +23,10 @@ public class Robot {
 
     static FastIntLocMap lastSeenPrevEnemyLoc = new FastIntLocMap(); //from previous turn only!!
 
+    MapRecorder mapRecorder = new MapRecorder();
 
-    public void indicateSharedInfo(RobotController rc) {
+
+    public void indicateSharedInfo(RobotController rc) throws GameActionException {
         for (MapLocation loc : sharedAllyFlagInfo) {
             if (loc != null) {
                 rc.setIndicatorDot(loc, 0, 100, 0);
@@ -39,12 +42,22 @@ public class Robot {
                 rc.setIndicatorDot(loc, 0, 0,255);
             }
         }
+        int i=0;
+        for (MapLocation loc : sharedEnemyFlagCarrierInfo) {
+            if (loc != null) {
+                rc.setIndicatorDot(loc, 0, 255,255);
+                indicatorString += loc + " " + Communicator.interpretNumber(rc, Communicator.enemyFlagCarriersTurn+11*i,11)+",";
+            }
+            i++;
+        }
+        indicatorString += symmetries[0] + " " + symmetries[1] + " " + symmetries[2] + ",";
     }
     public void initTurn(RobotController rc) throws GameActionException {
         indicatorString  = "";
-        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo, sharedAllyFlagCarrierInfo);
+        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo, sharedAllyFlagCarrierInfo,sharedEnemyFlagCarrierInfo,symmetries);
         indicateSharedInfo(rc);
         Communicator.updateEnemyFlagLocations(rc);
+        Communicator.updateEnemyFlagCarriers(rc);
         boolean isFirst=false;
 
         if (rc.getRoundNum() != Communicator.interpretNumber(rc, Communicator.roundNumStart,11)) {
@@ -73,6 +86,7 @@ public class Robot {
         if (rc.canBuyGlobal(globalUpgrades[2])) {
             rc.buyGlobal(globalUpgrades[2]);
         }
+        mapRecorder.update(rc);
     }
     public static void endTurn(RobotController rc) throws  GameActionException {
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent()); //TODO: remove redundancy
@@ -83,7 +97,7 @@ public class Robot {
     }
     public void spawn(RobotController rc, MapLocation mySpawnLoc) throws GameActionException {
         rc.spawn(mySpawnLoc);
-        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo, sharedAllyFlagCarrierInfo);
+        Communicator.processSharedArray(rc, sharedAllyFlagInfo, sharedEnemyFlagInfo, sharedAllyFlagCarrierInfo,sharedEnemyFlagCarrierInfo,symmetries);
         indicateSharedInfo(rc);
         Communicator.updateEnemyFlagLocations(rc);
         rng = new Random(rc.getID());

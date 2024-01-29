@@ -14,6 +14,12 @@ public strictfp class Communicator {
 
     static final int isAllyFlagCarrierAliveStart = allyFlagCarriersStart+3*12;
 
+    static final int enemyFlagCarriersStart = isAllyFlagCarrierAliveStart+3;
+
+    static final int enemyFlagCarriersTurn = enemyFlagCarriersStart+3*12;//11 bits each
+    static final int enemyFlagCarriersID = enemyFlagCarriersTurn+3*11;//14 bits each
+    static final int symmetriesEliminated = enemyFlagCarriersID+3*14;
+
     static int lastProcessTurn = -1;
 
 
@@ -95,7 +101,7 @@ public strictfp class Communicator {
     }
 
     //process information from shared array
-    public static void processSharedArray(RobotController rc, MapLocation[] sharedAllyFlagInfo, MapLocation[] sharedEnemyFlagInfo, MapLocation[] sharedAllyFlagCarrierInfo) throws GameActionException {
+    public static void processSharedArray(RobotController rc, MapLocation[] sharedAllyFlagInfo, MapLocation[] sharedEnemyFlagInfo, MapLocation[] sharedAllyFlagCarrierInfo, MapLocation[] sharedEnemyFlagCarrierInfo, boolean[] symmetries) throws GameActionException {
         if (rc.getRoundNum() == lastProcessTurn) {
             return;
         }
@@ -108,6 +114,12 @@ public strictfp class Communicator {
         }
         for (int i = 0; i < 3; i ++) {
             sharedAllyFlagCarrierInfo[i] = interpretLocation(rc, allyFlagCarriersStart +i*12);
+        }
+        for (int i = 0; i < 3; i ++) {
+            sharedEnemyFlagCarrierInfo[i] = interpretLocation(rc, enemyFlagCarriersStart+i*12);
+        }
+        for (int i = 0; i < 3; i ++) {
+            symmetries[i] = readBit(rc,symmetriesEliminated+i);
         }
     }
 
@@ -130,6 +142,25 @@ public strictfp class Communicator {
             }
         }
     }
+
+    public static void updateEnemyFlagCarriers(RobotController rc) throws GameActionException {
+        FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1, rc.getTeam());
+        for (FlagInfo flag : nearbyFlags) {
+            if (rc.getRoundNum() >= GameConstants.SETUP_ROUNDS) { //NOTE: might cause bugs if flag moving strat
+                if (flag.isPickedUp()) {
+                    writeEnemyFlagCarrierLocation(rc, flag.getLocation(), flag.getID());
+                } else {
+                    for (int i = 0; i < 3; i ++) {
+                        if (interpretNumber(rc, enemyFlagCarriersID+i*14, 14) == flag.getID()) {
+                            writeLocation(rc, enemyFlagCarriersStart+12*i,new MapLocation(63,63));
+                            writeNumber(rc, enemyFlagCarriersTurn+11*i, (1<<11)-1,11);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
 
 
 
@@ -188,7 +219,31 @@ public strictfp class Communicator {
         }
     }
 
+    public static void writeEnemyFlagCarrierLocation(RobotController rc, MapLocation loc, int id) throws GameActionException {
+        int currInd = -1;
+        for (int i= 0; i < 3; i ++) {
+            if (interpretNumber(rc, enemyFlagCarriersID+i*14, 14) ==id ) {
+                currInd = i;
+                break;
+            }
+        }
+        if (currInd == -1) {
+            int i = writeLocationAtFirstEmpty(rc, enemyFlagCarriersStart, enemyFlagCarriersStart+3*12, loc);
+            if (i != -1) {
+                writeNumber(rc, enemyFlagCarriersID + 14 * i, id, 14);
+            }
+            writeNumber(rc, enemyFlagCarriersTurn+11*i,rc.getRoundNum(),11);
+        } else {
+            writeLocation(rc,enemyFlagCarriersStart+12*currInd,loc);
+            writeNumber(rc, enemyFlagCarriersTurn+11*currInd,rc.getRoundNum(),11);
+        }
+    }
+
     public static void writeAllyFlagCarrier(RobotController rc, MapLocation loc) throws GameActionException {
         writeLocationAtFirstEmpty(rc, allyFlagCarriersStart, allyFlagCarriersStart+3*12, loc);
+    }
+
+    public static void eliminateSymmetry(RobotController rc, Symmetry symmetry) throws GameActionException {
+        writeBit(rc, symmetriesEliminated+symmetry.ordinal(),false);
     }
 }

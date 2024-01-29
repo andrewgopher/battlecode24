@@ -12,14 +12,15 @@ public class Navigator {
     private static MapLocation lastLocation = null;
     private static int stuckCnt = 0;
     private static int lastPathingTurn = 0;
-    private static int currentTurnDir = 0; //TODO: random
+
+    private static Random rng = new Random(69420);
+    private static int currentTurnDir = rng.nextInt(2); //TODO: random
     public static int disableTurnDirRound = 0;
 
     private static Direction[] prv_ = new Direction[PRV_LENGTH];
     private static int pathingCnt_ = 0;
     static int MAX_DEPTH = 15;
 
-    private static Random rng = new Random(69420);
 
     public static boolean passable(RobotController rc, MapLocation loc) throws GameActionException {
         if (!rc.canSenseLocation(loc)) {
@@ -136,6 +137,9 @@ public class Navigator {
                     }
                 } else {
                     //encounters obstacle; run simulation to determine best way to go
+                    if (rc.getRoundNum() > disableTurnDirRound) {
+                        currentTurnDir = getTurnDir(rc,dir, location);
+                    }
                     while (!canPass(rc,dir) && pathingCnt != 8) {
 //                        rc.setIndicatorLine(rc.getLocation(), rc.getLocation().add(dir), 0, 0, 255);
                         if (!rc.onTheMap(rc.getLocation().add(dir))) {
@@ -200,7 +204,7 @@ public class Navigator {
     }
 
     private static final int BYTECODE_CUTOFF = 3000;
-    static int getTurnDir(RobotController rc, Direction direction, MapLocation target, Random rng) throws GameActionException{
+    static int getTurnDir(RobotController rc, Direction direction, MapLocation target) throws GameActionException{
         //int ret = getCenterDir(direction);
         MapLocation now = rc.getLocation();
         int moveLeft = 0;

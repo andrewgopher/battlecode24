@@ -85,21 +85,30 @@ public class Player extends Robot{
         return closestFlag;
     }
 
-    public MapLocation targetEnemySpawn(RobotController rc) {
+    public MapLocation getClosestEnemySpawn(RobotController rc, MapLocation loc) {
         Symmetry currSymmetry = getSymmetry();
 
-        MapLocation target;
 
-        if (currSymmetry == Symmetry.ROTATIONAL) {
-            target = new MapLocation(rc.getMapWidth() - spawnPos.x, rc.getMapHeight() - spawnPos.y);
-        } else if (currSymmetry == Symmetry.HORIZONTAL) {
+        int minDist =Util.BigNum;
+        MapLocation minDistLoc = null;
 
-            target = new MapLocation(spawnPos.x, rc.getMapHeight() - spawnPos.y);
-        } else {
-            target = new MapLocation(rc.getMapWidth() - spawnPos.x, spawnPos.y);
-
+        for (MapLocation mySpawn : rc.getAllySpawnLocations()) {
+            MapLocation curr;
+            if (currSymmetry == Symmetry.ROTATIONAL) {
+                curr = new MapLocation(rc.getMapWidth() - mySpawn.x-1, rc.getMapHeight() -mySpawn.y-1);
+            } else if (currSymmetry == Symmetry.HORIZONTAL) {//this is correct
+                curr = new MapLocation(mySpawn.x, rc.getMapHeight() - mySpawn.y-1);
+            } else {
+                curr = new MapLocation(rc.getMapWidth() - mySpawn.x-1, mySpawn.y);
+            }
+//            indicatorString += curr + " " + mySpawn+",";
+            if (curr.distanceSquaredTo(loc) < minDist) {
+                minDist = curr.distanceSquaredTo(loc);
+                minDistLoc = curr;
+            }
         }
-        return target;
+//        indicatorString += minDistLoc;
+        return minDistLoc;
     }
 
     public MapLocation chooseBestAttackTarget(RobotController rc, RobotInfo[] nearbyEnemies, boolean mustBeAttackable) throws GameActionException {
@@ -126,21 +135,6 @@ public class Player extends Robot{
         }
         return attackTarget;
     }
-//    public boolean isLineBlocked(RobotController rc, MapLocation a, MapLocation b) throws GameActionException{
-//        while (!a.equals(b)) {
-//            Direction dir = a.directionTo(b);
-//            if (rc.canSenseLocation(a.add(dir))) {
-//                if (!rc.senseMapInfo(a.add(dir)).isWall()) {
-//                    a=a.add(dir);
-//                } else {
-//                    return true;
-//                }
-//            } else {
-//                break;
-//            }
-//        }
-//        return false;
-//    }
     public void offense(RobotController rc) throws GameActionException{
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
@@ -213,8 +207,8 @@ public class Player extends Robot{
                 }
             }
         }
-        //carrying flag to spawn or moving to enemy
-        if (rc.hasFlag()) {
+
+        if (rc.hasFlag()) {// carrying flag to spawn
             lastFlagRound = rc.getRoundNum();
             int flagId = rc.senseNearbyFlags(0)[0].getID();
             MapLocation target = Util.chooseClosestLoc(rc.getLocation(), rc.getAllySpawnLocations());
@@ -226,31 +220,62 @@ public class Player extends Robot{
                     Communicator.writeBit(rc, Communicator.isAllyFlagCarrierAliveStart + i, true);
                 }
             }
-        } else if (!isEscorting && numOpenEnemies==0) {
-            MapLocation target = null;
-            int minDistSq = Util.BigNum;
-            for (int i = 0; i < 3; i++) {
-                MapLocation loc = sharedEnemyFlagInfo[i];
-                if (loc == null || sharedAllyFlagCarrierInfo[i] != null || Communicator.readBit(rc, Communicator.enemyFlagCapturedStart + i))
-                    continue;
-                int currDistSq = loc.distanceSquaredTo(rc.getLocation());
-                if (currDistSq < minDistSq) {
-                    minDistSq = currDistSq;
-                    target = loc;
+        } else if (!isEscorting && numOpenEnemies==0) {//macro movement: moving to enemy, intercepting enemy flag carriers
+//            for (int i = 0; i < 3; i ++) {
+//                MapLocation lastSeenEnemyFlagCarrierLoc = sharedEnemyFlagCarrierInfo[i];
+//                int lastSeenEnemyFlagCarrierTurn = Communicator.interpretNumber(rc,Communicator.enemyFlagCarriersTurn+i*11,11);
+//
+//                if (lastSeenEnemyFlagCarrierLoc != null) {
+//                    MapLocation closestEnemySpawn = getClosestEnemySpawn(rc, lastSeenEnemyFlagCarrierLoc);
+//                    if (rc.getRoundNum()-lastSeenEnemyFlagCarrierTurn <= Math.sqrt(closestEnemySpawn.distanceSquaredTo(lastSeenEnemyFlagCarrierLoc))*2) {
+//                        MapLocation currPredictedPos = lastSeenEnemyFlagCarrierLoc;
+//                        for (int j = 0; j < (rc.getRoundNum() - lastSeenEnemyFlagCarrierTurn) / 2; j++) {
+//                            currPredictedPos = currPredictedPos.add(currPredictedPos.directionTo(closestEnemySpawn));
+//                        }
+//
+//                        int j = 0;
+//                        while (!currPredictedPos.equals(closestEnemySpawn)) {
+//                            if (currPredictedPos.distanceSquaredTo(rc.getLocation()) <= j * j) {
+//                                break;
+//                            }
+//                            currPredictedPos = currPredictedPos.add(currPredictedPos.directionTo(closestEnemySpawn));
+//                            j += 2;
+//                        }
+//                        indicatorString += "intercept " + currPredictedPos + ",";
+//                        Navigator.moveToward(rc, currPredictedPos);
+//                        break;
+//                    } else {
+//                        Communicator.writeLocation(rc,Communicator.enemyFlagCarriersStart+i*12,new MapLocation(63,63));
+//                    }
+//                }
+//            }
+
+            if (rc.isMovementReady()) {
+                MapLocation target = null;
+                int minDistSq = Util.BigNum;
+                for (int i = 0; i < 3; i++) {
+                    MapLocation loc = sharedEnemyFlagInfo[i];
+                    if (loc == null || sharedAllyFlagCarrierInfo[i] != null || Communicator.readBit(rc, Communicator.enemyFlagCapturedStart + i))
+                        continue;
+                    int currDistSq = loc.distanceSquaredTo(rc.getLocation());
+                    if (currDistSq < minDistSq) {
+                        minDistSq = currDistSq;
+                        target = loc;
+                    }
                 }
-            }
-            if (target != null) {
-                indicatorString+="rush enemy flag,";
-                Navigator.moveToward(rc, target);
-            } else {
-                MapLocation closestBroadcastLoc = Util.chooseClosestLoc(rc.getLocation(), broadcastFlagLocations);
-                if (closestBroadcastLoc != null && rc.getLocation().distanceSquaredTo(closestBroadcastLoc) > 10) {
-                    Navigator.moveToward(rc, closestBroadcastLoc);
-                    indicatorString+="rush broadcast,";
-                } else {
-                    target = targetEnemySpawn(rc);
+                if (target != null) {
+                    indicatorString += "rush enemy flag,";
                     Navigator.moveToward(rc, target);
-                    indicatorString+="rush enemy spawn,";
+                } else {
+                    MapLocation closestBroadcastLoc = Util.chooseClosestLoc(rc.getLocation(), broadcastFlagLocations);
+                    if (closestBroadcastLoc != null && rc.getLocation().distanceSquaredTo(closestBroadcastLoc) > 10) {
+                        Navigator.moveToward(rc, closestBroadcastLoc);
+                        indicatorString += "rush broadcast,";
+                    } else {
+                        target = getClosestEnemySpawn(rc, rc.getLocation());
+                        Navigator.moveToward(rc, target);
+                        indicatorString += "rush enemy spawn,";
+                    }
                 }
             }
         }
@@ -454,7 +479,7 @@ public class Player extends Robot{
 //        alternate healing code (this doesn't heal enough)
         if (rc.getActionCooldownTurns() < 10) {
             int currHealCyc = (rc.getActionCooldownTurns() + Util.healLevelCoolDown[rc.getLevel(SkillType.HEAL)]) / 10;
-            indicatorString += currHealCyc;
+//            indicatorString += currHealCyc;
             MapLocation currLoc = rc.getLocation();
             if (closestEnemyLoc != null) {
                 for (int i = 0; i < currHealCyc-1; i++) {
@@ -475,10 +500,10 @@ public class Player extends Robot{
                     if (minDistDir != null) {
                         currLoc = currLoc.add(minDistDir);
                     }
-                    indicatorString += " " + currLoc;
+//                    indicatorString += " " + currLoc;
                 }
             }
-            indicatorString += ",";
+//            indicatorString += ",";
 
             if (closestEnemyLoc == null || currLoc.distanceSquaredTo(closestEnemyLoc) > 4) {
                 int minAllyHealth = 1000;
