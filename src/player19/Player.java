@@ -11,7 +11,7 @@ public class Player extends Robot{
     @Override
     public void initTurn(RobotController rc) throws  GameActionException {
         super.initTurn(rc);
-        if (!rc.hasFlag() && flagInd != -1 && rc.getRoundNum()-lastFlagRound <= 1 && rc.senseMapInfo(rc.getLocation()).getSpawnZoneTeamObject() == rc.getTeam()) {
+        if (!rc.hasFlag() && flagInd != -1 && rc.senseMapInfo(rc.getLocation()).getSpawnZoneTeamObject() == rc.getTeam()) {
             Communicator.writeBit(rc, Communicator.enemyFlagCapturedStart+flagInd,true);
             flagInd = -1;
             lastFlagRound=-1;
