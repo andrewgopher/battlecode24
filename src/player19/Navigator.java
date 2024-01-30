@@ -26,7 +26,15 @@ public class Navigator {
         if (!rc.canSenseLocation(loc)) {
             return true;
         }
-        return (rc.sensePassability(loc) || (rc.onTheMap(loc) && rc.senseMapInfo(loc).isWater())) && rc.senseRobotAtLocation(loc) == null;
+        if (rc.getCrumbs() < 30) {
+            return (rc.sensePassability(loc)) && rc.senseRobotAtLocation(loc) == null;
+        } else {
+            if (rng.nextInt(4) == 0) {
+                return (rc.sensePassability(loc) || (rc.onTheMap(loc) && rc.senseMapInfo(loc).isWater())) && rc.senseRobotAtLocation(loc) == null;
+            } else {
+                return (rc.sensePassability(loc)) && rc.senseRobotAtLocation(loc) == null;
+            }
+        }
     }
     static boolean canPass(RobotController rc, MapLocation loc) throws GameActionException {
         if (!rc.onTheMap(loc)) {
@@ -79,7 +87,14 @@ public class Navigator {
 
     public static boolean canMove(RobotController rc, Direction dir) throws GameActionException {
         MapLocation newLoc = rc.getLocation().add(dir);
-        return rc.canMove(dir) || (rc.onTheMap(newLoc) && rc.senseMapInfo(newLoc).isWater());
+        if (rc.getCrumbs()<30) return rc.canMove(dir);
+        else {
+            if (rng.nextInt(4) == 0) {
+                return rc.canMove(dir) || (rc.onTheMap(newLoc) && rc.senseMapInfo(newLoc).isWater());
+            } else {
+                return rc.canMove(dir);
+            }
+        }
     }
 
     static MapLocation moveToward(RobotController rc, MapLocation location) throws GameActionException {

@@ -60,7 +60,7 @@ public class Robot {
         for (MapLocation loc :sharedAllySpawnInfo) {
             if (loc != null) {
                 rc.setIndicatorDot(loc,0,255,0);
-                indicatorString += loc + " " + sharedAllySpawnTurnInfo[i]+ " " + sharedAllySpawnEnemiesInfo[i]+",";
+                indicatorString += loc + " " + sharedAllySpawnTurnInfo[i]+ " " + sharedAllySpawnEnemiesInfo[i]+ " " + Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+12*i,12)+ ",";
             }
             i++;
         }
@@ -99,9 +99,10 @@ public class Robot {
             }
 
             for (int i = 0; i < 3; i ++) {
-                int currEnemyCnt = Communicator.interpretNumber(rc,Communicator.allySpawnsEnemies+6*i,6);
-                currEnemyCnt = Math.max(0,currEnemyCnt-5);
-                Communicator.writeNumber(rc,Communicator.allySpawnsEnemies+6*i,currEnemyCnt,6);
+                Communicator.writeNumber(rc,Communicator.allySpawnsEnemies+12*i,Communicator.interpretNumber(rc,Communicator.newAllySpawnsEnemies+12*i,12),12);
+                Communicator.writeNumber(rc,Communicator.allySpawnsAllies+12*i,Communicator.interpretNumber(rc,Communicator.newAllySpawnsAllies+12*i,12),12);
+                Communicator.writeNumber(rc,Communicator.newAllySpawnsEnemies+12*i,0,12);
+                Communicator.writeNumber(rc,Communicator.newAllySpawnsAllies+12*i,0,12);
             }
         }
         int isCenterCnt = 0;
@@ -124,7 +125,7 @@ public class Robot {
             }
         }
 
-        if (minDistToAllySpawn <= 30) {
+        if (minDistToAllySpawn <= Math.min(rc.getMapHeight(),rc.getMapWidth())*Math.min(rc.getMapHeight(),rc.getMapWidth())/9) {
             Communicator.updateAllySpawn(rc,minDistAllySpawn);
         }
 

@@ -33,7 +33,7 @@ public strictfp class RobotPlayer {
 
                     int maxTurnsSinceReport = 0;
 
-                    int maxEnemiesAtSpawn = 0;
+                    double maxEnemiesAtSpawn = 0;
 
                     for (MapLocation loc : spawnLocs) {
                         if (!rc.canSpawn(loc)) continue;
@@ -62,18 +62,23 @@ public strictfp class RobotPlayer {
                         }
 
 
-                        if (rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd]>= 10) {
+                        if (rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd]>= 15) {
                             better = true;
                         }
 
-                        if (Player.sharedAllySpawnEnemiesInfo[centerInd] > maxEnemiesAtSpawn || (Player.sharedAllySpawnEnemiesInfo[centerInd] == maxEnemiesAtSpawn && rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd] >= maxTurnsSinceReport)) {
-                            better = true;
+                        int currEnemies = Player.sharedAllySpawnEnemiesInfo[centerInd];
+                        int currAllies = Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+12*centerInd,12);
+
+                        if (maxTurnsSinceReport < 15) {
+                            if ((double)currEnemies/(double)currAllies > maxEnemiesAtSpawn || ((double)currEnemies/(double)currAllies == maxEnemiesAtSpawn && rc.getRoundNum() - Player.sharedAllySpawnTurnInfo[centerInd] >= maxTurnsSinceReport)) {
+                                better = true;
+                            }
                         }
 
                         if (better) {
                             bestSpawnLoc = loc;
                             maxTurnsSinceReport = rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd];
-                            maxEnemiesAtSpawn = Player.sharedAllySpawnEnemiesInfo[centerInd];
+                            maxEnemiesAtSpawn = (double) currEnemies/(double)currAllies;
                         }
                     }
 

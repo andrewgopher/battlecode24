@@ -26,8 +26,13 @@ public strictfp class Communicator {
 
     static final int allySpawns = interceptCnt+3*6; //3 12 bit
     static final int allySpawnsTurn = allySpawns+3*12;//3 11 bit
-    static final int allySpawnsEnemies = allySpawnsTurn+3*11;//3 6 bit
+    static final int allySpawnsEnemies = allySpawnsTurn+3*11;//3 12 bit
 
+    static final int newAllySpawnsEnemies = allySpawnsEnemies+3*12; //3 12 bit
+
+    static final int allySpawnsAllies = newAllySpawnsEnemies+3*12;
+
+    static final int newAllySpawnsAllies = allySpawnsAllies+3*12;
     static int lastProcessTurn = -1;
 
 
@@ -135,7 +140,7 @@ public strictfp class Communicator {
         }
         for (int i = 0; i < 3; i ++) {
             sharedAllySpawnInfo[i] = interpretLocation(rc,allySpawns+i*12);
-            sharedAllySpawnEnemiesInfo[i] = interpretNumber(rc, allySpawnsEnemies+i*6,6);
+            sharedAllySpawnEnemiesInfo[i] = interpretNumber(rc, allySpawnsEnemies+i*12,12);
             sharedAllySpawnTurnInfo[i] = interpretNumber(rc, allySpawnsTurn+11*i,11);
         }
     }
@@ -155,11 +160,16 @@ public strictfp class Communicator {
     }
 
     public static void updateAllySpawn(RobotController rc, int currInd) throws GameActionException{
-        writeNumber(rc,allySpawnsTurn+11*currInd,rc.getRoundNum(),11);
+        MapLocation spawnLoc = interpretLocation(rc,allySpawns+12*currInd);
+        if (rc.getLocation().distanceSquaredTo(spawnLoc)<=9) {
+            writeNumber(rc, allySpawnsTurn + 11 * currInd, rc.getRoundNum(), 11);
+        }
 
-        int currEnemyCount = interpretNumber(rc, allySpawnsEnemies+6*currInd,6);
-        int newEnemyCount = Math.min(currEnemyCount+rc.senseNearbyRobots(-1,rc.getTeam().opponent()).length,50);
-        writeNumber(rc,allySpawnsEnemies+6*currInd,newEnemyCount,6);
+        int currEnemyCount = interpretNumber(rc, newAllySpawnsEnemies+12*currInd,12);
+        int newEnemyCount = currEnemyCount+rc.senseNearbyRobots(-1,rc.getTeam().opponent()).length;
+        writeNumber(rc,newAllySpawnsEnemies+12*currInd,newEnemyCount,12);
+
+        writeNumber(rc,newAllySpawnsAllies+12*currInd,interpretNumber(rc,newAllySpawnsAllies+12*currInd,12)+1,12);
     }
 
     public static void updateEnemyFlagLocations(RobotController rc) throws GameActionException {
