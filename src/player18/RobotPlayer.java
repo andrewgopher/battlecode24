@@ -13,17 +13,80 @@ public strictfp class RobotPlayer {
         Player player = new Player();
         while (true) {
             try {
+                Player.spawnIndicatorString ="";
 
                 if (!rc.isSpawned()) {//spawn
+                    player.processSharedArray(rc);
+
+//                    int i = 0;
+//                    for (MapLocation loc :Player.sharedAllySpawnInfo) {
+//                        if (loc != null) {
+//                            Player.spawnIndicatorString += loc + " " + Player.sharedAllySpawnTurnInfo[i]+ " " + Player.sharedAllySpawnEnemiesInfo[i]+",";
+//                        }
+//                        i++;
+//                        if (i==1) break;
+//                    }
+
                     MapLocation[] spawnLocs = rc.getAllySpawnLocations();
-                    MapLocation mySpawnLoc = spawnLocs[rc.getID() % spawnLocs.length];
-                    if (rc.canSpawn(mySpawnLoc)) {
-                        player.spawn(rc, mySpawnLoc);
+//                    MapLocation mySpawnLoc = spawnLocs[rc.getID() % spawnLocs.length];
+                    MapLocation bestSpawnLoc = null;
+
+                    int maxTurnsSinceReport = 0;
+
+                    int maxEnemiesAtSpawn = 0;
+
+                    for (MapLocation loc : spawnLocs) {
+                        if (!rc.canSpawn(loc)) continue;
+                        boolean better=false;
+
+                        boolean isCenter=false;
+                        int centerInd = -1;
+
+                        int i = 0;
+                        for (MapLocation centerLoc : Player.sharedAllySpawnInfo) {
+                            if (centerLoc != null && centerLoc.equals(loc)) {
+                                isCenter = true;
+                            }
+                            if (centerLoc != null && centerLoc.isAdjacentTo(loc)) {
+                                centerInd = i;
+                                break;
+                            }
+                            i++;
+                        }
+                        if (centerInd == -1) {
+                            bestSpawnLoc = spawnLocs[rc.getID()%spawnLocs.length];
+                            break;
+                        }
+                        if (!isCenter && rc.canSpawn(Player.sharedAllySpawnInfo[centerInd])) {
+                            continue;
+                        }
+
+
+                        if (rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd]>= 10) {
+                            better = true;
+                        }
+
+                        if (Player.sharedAllySpawnEnemiesInfo[centerInd] > maxEnemiesAtSpawn || (Player.sharedAllySpawnEnemiesInfo[centerInd] == maxEnemiesAtSpawn && rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd] >= maxTurnsSinceReport)) {
+                            better = true;
+                        }
+
+                        if (better) {
+                            bestSpawnLoc = loc;
+                            maxTurnsSinceReport = rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd];
+                            maxEnemiesAtSpawn = Player.sharedAllySpawnEnemiesInfo[centerInd];
+                        }
+                    }
+
+
+                    if (rc.canSpawn(bestSpawnLoc)) {
+                        Player.spawnIndicatorString += "spawn "+ bestSpawnLoc + " turns " + maxTurnsSinceReport+ " enemies " +maxEnemiesAtSpawn +",";
+                        player.spawn(rc, bestSpawnLoc);
                     } else {
                         Clock.yield();
                         continue;
                     }
                 }
+
                 player.initTurn(rc);
                 if (rc.getRoundNum() < GameConstants.SETUP_ROUNDS - 35) {
                     if (Player.isDefender) {
@@ -43,14 +106,15 @@ public strictfp class RobotPlayer {
                     }
                     MapLocation target = player.getClosestEnemySpawn(rc,rc.getLocation());
                     Direction dirToSpawn = rc.getLocation().directionTo(target);
-                    boolean isBlockedByRobot = false;
-                    if (rc.canSenseLocation(rc.getLocation().add(dirToSpawn))) {
-                        if (rc.senseRobotAtLocation(rc.getLocation().add(dirToSpawn)) != null) {
-                            isBlockedByRobot=true;
+                    //go for crumbs
+                    MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
+                    MapLocation crumbTarget = Util.chooseClosestLoc(rc.getLocation(), nearbyCrumbs);
+                    if (crumbTarget != null) {
+                        Navigator.moveToward(rc, crumbTarget);
+                    } else {
+                        if (!isAtDam) {
+                            Navigator.moveToward(rc, target);
                         }
-                    }
-                    if (!isAtDam) {
-                        Navigator.moveToward(rc, target);
                     }
                 } else {
                     player.offense(rc);

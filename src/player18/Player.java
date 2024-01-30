@@ -37,7 +37,7 @@ public class Player extends Robot{
                 if (isUntouched) {
                     isDefender = true;
                     rc.pickupFlag(flag.getLocation());
-                    newFlagLoc = rc.getLocation();
+                    newFlagLoc = flag.getLocation();
                 }
             }
         }
@@ -138,10 +138,11 @@ public class Player extends Robot{
     public void offense(RobotController rc) throws GameActionException{
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
-        int numOpenEnemies = 0;
+        boolean isOpenEnemies = false;
         for (RobotInfo enemy : nearbyEnemies) {
             if (!Util.isLineBlocked(rc, rc.getLocation(), enemy.getLocation())) {
-                numOpenEnemies++;
+                isOpenEnemies=true;
+                break;
             }
         }
 
@@ -169,15 +170,15 @@ public class Player extends Robot{
             }
         }
 
-        //go for crumbs
-        MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1); //TODO: only go for crumbs if safe
-        MapLocation crumbTarget = Util.chooseClosestLoc(rc.getLocation(), nearbyCrumbs);
-        if (crumbTarget != null && nearbyAllies.length-nearbyEnemies.length >= 1) {
-            Navigator.moveToward(rc, crumbTarget);
-        }
 
         //fight
         if (!rc.hasFlag()) {
+            //go for crumbs
+            MapLocation[] nearbyCrumbs = rc.senseNearbyCrumbs(-1);
+            MapLocation crumbTarget = Util.chooseClosestLoc(rc.getLocation(), nearbyCrumbs);
+            if (crumbTarget != null && nearbyAllies.length-nearbyEnemies.length >= 1) {
+                Navigator.moveToward(rc, crumbTarget);
+            }
             fight(rc, nearbyEnemies, nearbyAllies, nearbyMapInfos);
         }
 
@@ -220,35 +221,40 @@ public class Player extends Robot{
                     Communicator.writeBit(rc, Communicator.isAllyFlagCarrierAliveStart + i, true);
                 }
             }
-        } else if (!isEscorting && numOpenEnemies==0) {//macro movement: moving to enemy, intercepting enemy flag carriers
-//            for (int i = 0; i < 3; i ++) {
-//                MapLocation lastSeenEnemyFlagCarrierLoc = sharedEnemyFlagCarrierInfo[i];
-//                int lastSeenEnemyFlagCarrierTurn = Communicator.interpretNumber(rc,Communicator.enemyFlagCarriersTurn+i*11,11);
-//
-//                if (lastSeenEnemyFlagCarrierLoc != null) {
-//                    MapLocation closestEnemySpawn = getClosestEnemySpawn(rc, lastSeenEnemyFlagCarrierLoc);
-//                    if (rc.getRoundNum()-lastSeenEnemyFlagCarrierTurn <= Math.sqrt(closestEnemySpawn.distanceSquaredTo(lastSeenEnemyFlagCarrierLoc))*2) {
-//                        MapLocation currPredictedPos = lastSeenEnemyFlagCarrierLoc;
-//                        for (int j = 0; j < (rc.getRoundNum() - lastSeenEnemyFlagCarrierTurn) / 2; j++) {
-//                            currPredictedPos = currPredictedPos.add(currPredictedPos.directionTo(closestEnemySpawn));
-//                        }
-//
-//                        int j = 0;
-//                        while (!currPredictedPos.equals(closestEnemySpawn)) {
-//                            if (currPredictedPos.distanceSquaredTo(rc.getLocation()) <= j * j) {
-//                                break;
-//                            }
-//                            currPredictedPos = currPredictedPos.add(currPredictedPos.directionTo(closestEnemySpawn));
-//                            j += 2;
-//                        }
-//                        indicatorString += "intercept " + currPredictedPos + ",";
-//                        Navigator.moveToward(rc, currPredictedPos);
-//                        break;
-//                    } else {
-//                        Communicator.writeLocation(rc,Communicator.enemyFlagCarriersStart+i*12,new MapLocation(63,63));
-//                    }
-//                }
-//            }
+        } else if (!isEscorting && !isOpenEnemies) {//macro movement: moving to enemy, intercepting enemy flag carriers
+            if (rc.isMovementReady()) {
+                for (int i = 0; i < 3; i++) {
+                    MapLocation lastSeenEnemyFlagCarrierLoc = sharedEnemyFlagCarrierInfo[i];
+                    int lastSeenEnemyFlagCarrierTurn = Communicator.interpretNumber(rc, Communicator.enemyFlagCarriersTurn + i * 11, 11);
+
+                    if (lastSeenEnemyFlagCarrierLoc != null) {
+                        MapLocation closestEnemySpawn = getClosestEnemySpawn(rc, lastSeenEnemyFlagCarrierLoc);
+                        if (rc.getRoundNum() - lastSeenEnemyFlagCarrierTurn <= Math.sqrt(closestEnemySpawn.distanceSquaredTo(lastSeenEnemyFlagCarrierLoc)) * 2) {
+                            if (Communicator.getInterceptCnt(rc, i) < Math.max(Communicator.interpretNumber(rc, Communicator.enemyFlagCarriersEscort + i * 6, 6), 5)) {
+                                MapLocation currPredictedPos = lastSeenEnemyFlagCarrierLoc;
+                                for (int j = 0; j < (rc.getRoundNum() - lastSeenEnemyFlagCarrierTurn) / 2; j++) {
+                                    currPredictedPos = currPredictedPos.add(currPredictedPos.directionTo(closestEnemySpawn));
+                                }
+
+                                int j = 0;
+                                while (!currPredictedPos.equals(closestEnemySpawn)) {
+                                    if (currPredictedPos.distanceSquaredTo(rc.getLocation()) <= j * j) {
+                                        break;
+                                    }
+                                    currPredictedPos = currPredictedPos.add(currPredictedPos.directionTo(closestEnemySpawn));
+                                    j += 2;
+                                }
+                                indicatorString += "intercept " + currPredictedPos + " " + Communicator.interpretNumber(rc, Communicator.enemyFlagCarriersEscort + i * 6, 6) + ",";
+                                Communicator.incrementCnt(rc, i);
+                                Navigator.moveToward(rc, currPredictedPos);
+                                break;
+                            }
+                        } else {
+                            Communicator.writeLocation(rc, Communicator.enemyFlagCarriersStart + i * 12, new MapLocation(63, 63));
+                        }
+                    }
+                }
+            }
 
             if (rc.isMovementReady()) {
                 MapLocation target = null;

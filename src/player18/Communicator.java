@@ -20,6 +20,14 @@ public strictfp class Communicator {
     static final int enemyFlagCarriersID = enemyFlagCarriersTurn+3*11;//14 bits each
     static final int symmetriesEliminated = enemyFlagCarriersID+3*14;
 
+    static final int enemyFlagCarriersEscort = symmetriesEliminated+3;//3 6 bit integers
+
+    static final int interceptCnt = enemyFlagCarriersEscort+3*6;//3 6 bit integers
+
+    static final int allySpawns = interceptCnt+3*6; //3 12 bit
+    static final int allySpawnsTurn = allySpawns+3*12;//3 11 bit
+    static final int allySpawnsEnemies = allySpawnsTurn+3*11;//3 6 bit
+
     static int lastProcessTurn = -1;
 
 
@@ -101,7 +109,11 @@ public strictfp class Communicator {
     }
 
     //process information from shared array
-    public static void processSharedArray(RobotController rc, MapLocation[] sharedAllyFlagInfo, MapLocation[] sharedEnemyFlagInfo, MapLocation[] sharedAllyFlagCarrierInfo, MapLocation[] sharedEnemyFlagCarrierInfo, boolean[] symmetries) throws GameActionException {
+    public static void processSharedArray(RobotController rc, MapLocation[] sharedAllyFlagInfo,
+                                          MapLocation[] sharedEnemyFlagInfo, MapLocation[] sharedAllyFlagCarrierInfo,
+                                          MapLocation[] sharedEnemyFlagCarrierInfo, boolean[] symmetries,
+                                          MapLocation[] sharedAllySpawnInfo,int[] sharedAllySpawnEnemiesInfo,
+                                          int[] sharedAllySpawnTurnInfo) throws GameActionException {
         if (rc.getRoundNum() == lastProcessTurn) {
             return;
         }
@@ -121,9 +133,35 @@ public strictfp class Communicator {
         for (int i = 0; i < 3; i ++) {
             symmetries[i] = readBit(rc,symmetriesEliminated+i);
         }
+        for (int i = 0; i < 3; i ++) {
+            sharedAllySpawnInfo[i] = interpretLocation(rc,allySpawns+i*12);
+            sharedAllySpawnEnemiesInfo[i] = interpretNumber(rc, allySpawnsEnemies+i*6,6);
+            sharedAllySpawnTurnInfo[i] = interpretNumber(rc, allySpawnsTurn+11*i,11);
+        }
     }
 
     //update shared array with my own sensed information
+    public static void addAllySpawn(RobotController rc, MapLocation loc) throws GameActionException {
+        int currInd = -1;
+        for (int i = 0; i < 3; i ++) {
+            MapLocation currSpawnLoc=interpretLocation(rc,allySpawns+i*12);
+            if (currSpawnLoc != null && currSpawnLoc.equals(loc)) {
+                currInd=i;
+            }
+        }
+        if (currInd == -1) {
+            int i =writeLocationAtFirstEmpty(rc,allySpawns,allySpawns+3*12,loc);
+        }
+    }
+
+    public static void updateAllySpawn(RobotController rc, int currInd) throws GameActionException{
+        writeNumber(rc,allySpawnsTurn+11*currInd,rc.getRoundNum(),11);
+
+        int currEnemyCount = interpretNumber(rc, allySpawnsEnemies+6*currInd,6);
+        int newEnemyCount = Math.min(currEnemyCount+rc.senseNearbyRobots(-1,rc.getTeam().opponent()).length,50);
+        writeNumber(rc,allySpawnsEnemies+6*currInd,newEnemyCount,6);
+    }
+
     public static void updateEnemyFlagLocations(RobotController rc) throws GameActionException {
         FlagInfo[] nearbyFlags = rc.senseNearbyFlags(-1);
         for (FlagInfo flag : nearbyFlags) { //TOOD: only add untouched
@@ -233,9 +271,11 @@ public strictfp class Communicator {
                 writeNumber(rc, enemyFlagCarriersID + 14 * i, id, 14);
             }
             writeNumber(rc, enemyFlagCarriersTurn+11*i,rc.getRoundNum(),11);
+            writeNumber(rc,enemyFlagCarriersEscort+6*i,rc.senseNearbyRobots(-1,rc.getTeam().opponent()).length,6);
         } else {
             writeLocation(rc,enemyFlagCarriersStart+12*currInd,loc);
             writeNumber(rc, enemyFlagCarriersTurn+11*currInd,rc.getRoundNum(),11);
+            writeNumber(rc,enemyFlagCarriersEscort+6*currInd,rc.senseNearbyRobots(-1,rc.getTeam().opponent()).length,6);
         }
     }
 
@@ -245,5 +285,13 @@ public strictfp class Communicator {
 
     public static void eliminateSymmetry(RobotController rc, Symmetry symmetry) throws GameActionException {
         writeBit(rc, symmetriesEliminated+symmetry.ordinal(),false);
+    }
+
+    public static int getInterceptCnt(RobotController rc, int i) throws  GameActionException {
+        return interpretNumber(rc,interceptCnt+6*i,6);
+    }
+
+    public static void incrementCnt(RobotController rc, int i) throws  GameActionException {
+        writeNumber(rc,interceptCnt+6*i,interpretNumber(rc,interceptCnt+6*i,6)+1,6);
     }
 }

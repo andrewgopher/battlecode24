@@ -22,7 +22,7 @@ public class Traps {
     }
 
     public static MapLocation chooseTrapLoc(RobotController rc, RobotInfo[] nearbyEnemies, MapLocation[] nearbyAllyTraps, int lowerBound, FastIntLocMap lastSeenPrevEnemyLoc, TrapType trapType) throws GameActionException {
-        MapLocation[] buildableLocs = rc.getAllLocationsWithinRadiusSquared(rc.getLocation(), 4);
+        MapLocation[] buildableLocs = rc.getAllLocationsWithinRadiusSquared(rc.getLocation(), 2);
         int bestEval = lowerBound;
         MapLocation bestEvalLoc = null;
         int bestEvalSumDist = Util.BigNum;

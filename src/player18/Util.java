@@ -20,9 +20,9 @@ public class Util {
     public static boolean isLineBlocked(RobotController rc, MapLocation a, MapLocation b) throws GameActionException {
         while (!a.equals(b)) {
             Direction dir = a.directionTo(b);
-            if (rc.canSenseLocation(a.add(dir))) {
-                if (!rc.senseMapInfo(a.add(dir)).isWall()) {
-                    a=a.add(dir);
+            a = a.add(dir);
+            if (rc.canSenseLocation(a)) {
+                if (rc.sensePassability(a)) {
                 } else {
                     return true;
                 }

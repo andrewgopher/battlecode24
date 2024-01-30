@@ -50,8 +50,8 @@ public class Navigator {
     public static void wander(RobotController rc, Random rng) throws GameActionException {
         int currDirInd = rng.nextInt(DirectionsUtil.directions.length);
         for (int i = 0; i < DirectionsUtil.directions.length; i ++) {
-            if (rc.canMove(DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length])) {
-                rc.move(DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length]);
+            if (canMove(rc,DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length])) {
+                tryMove(rc,DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length]);
                 break;
             }
         }
