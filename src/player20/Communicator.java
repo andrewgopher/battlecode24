@@ -35,7 +35,15 @@ public strictfp class Communicator {
     static final int newAllySpawnsAllies = allySpawnsAllies+3*12;
     static int lastProcessTurn = -1;
 
+    static final int escortCnt = newAllySpawnsAllies+3*12;
 
+    public static int getEscortCnt(RobotController rc, int i) throws  GameActionException {
+        return interpretNumber(rc,escortCnt+6*i,6);
+    }
+
+    public static void incrementEscortCnt(RobotController rc, int i) throws  GameActionException {
+        writeNumber(rc,escortCnt+6*i,interpretNumber(rc,escortCnt+6*i,6)+1,6);
+    }
 
 
     //wipes array with value x

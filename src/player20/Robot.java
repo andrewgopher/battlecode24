@@ -60,7 +60,8 @@ public class Robot {
         for (MapLocation loc :sharedAllySpawnInfo) {
             if (loc != null) {
                 rc.setIndicatorDot(loc,0,255,0);
-                indicatorString += loc + " " + sharedAllySpawnTurnInfo[i]+ " " + sharedAllySpawnEnemiesInfo[i]+ " " + Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+12*i,12)+ ",";
+//                indicatorString += loc + " " + sharedAllySpawnTurnInfo[i]+ " " + sharedAllySpawnEnemiesInfo[i]+ " " + Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+12*i,12)+ ",";
+                indicatorString+=Communicator.getEscortCnt(rc,i)+",";
             }
             i++;
         }
@@ -96,6 +97,9 @@ public class Robot {
             Communicator.writeNumber(rc, Communicator.isAllyFlagCarrierAliveStart, 0, 3);
             for (int i = 0; i < 3; i++) {
                 Communicator.writeNumber(rc,Communicator.interceptCnt+i*6,0,6);
+            }
+            for (int i = 0; i < 3; i ++) {
+                Communicator.writeNumber(rc, Communicator.escortCnt+6*i,0,6);
             }
 
             for (int i = 0; i < 3; i ++) {

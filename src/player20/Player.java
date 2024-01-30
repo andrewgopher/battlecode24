@@ -184,30 +184,70 @@ public class Player extends Robot{
 
         //escorting
         isEscorting = false;
-        for (RobotInfo ally : nearbyAllies) {
-            int distSqFromAlly = ally.getLocation().distanceSquaredTo(rc.getLocation());
+//        for (RobotInfo ally : nearbyAllies) {
+//            int distSqFromAlly = ally.getLocation().distanceSquaredTo(rc.getLocation());
+//
+//            if (ally.hasFlag()) {
+//                int numAlreadyEscorting = 0;
+//                for (RobotInfo ally2 : nearbyAllies) {
+//                    if (ally2.getLocation().distanceSquaredTo(ally.getLocation()) <= GameConstants.VISION_RADIUS_SQUARED) {
+//                        numAlreadyEscorting++;
+//                    }
+//                }
+//                if (numAlreadyEscorting < 8) { //TODO: use shared array instead so further away allies can join escort
+//                    isEscorting = true;
+//                    Direction direction = ally.getLocation().directionTo(Util.chooseClosestLoc(ally.getLocation(), rc.getAllySpawnLocations()));
+//                    int distSqFromAllyAfterAllyMoves = ally.getLocation().add(direction).distanceSquaredTo(rc.getLocation());
+//                    if (distSqFromAllyAfterAllyMoves < distSqFromAlly && ally.getLocation().distanceSquaredTo(rc.getLocation()) < 4) {
+//                        Navigator.tryMove(rc, direction);
+//                    }
+//                    if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
+//                        Navigator.tryMove(rc, direction);
+//                    }
+//                    break;
+//                }
+//            }
+//        }
+        for (int i = 0; i < 3; i ++) {
+            if (sharedAllyFlagCarrierInfo[i] != null) {
+                if (Communicator.getEscortCnt(rc, i) < 5) {
+                    boolean canEscort = false;
+                    MapLocation currAllyLoc = sharedAllyFlagCarrierInfo[i];
+                    MapLocation closestAllySpawn = Util.chooseClosestLoc(currAllyLoc, rc.getAllySpawnLocations());
+                    int j =0;
+                    while (!currAllyLoc.equals(closestAllySpawn)) {
+                        if (currAllyLoc.distanceSquaredTo(sharedAllyFlagCarrierInfo[i]) <= j*j) {
+                            break;
+                        }
+                        currAllyLoc = currAllyLoc.add(currAllyLoc.directionTo(closestAllySpawn));
+                        j+=2;
+                    }
+                    if (j <= 15) {
+                        canEscort =true;
+                    }
 
-            if (ally.hasFlag()) {
-                int numAlreadyEscorting = 0;
-                for (RobotInfo ally2 : nearbyAllies) {
-                    if (ally2.getLocation().distanceSquaredTo(ally.getLocation()) <= GameConstants.VISION_RADIUS_SQUARED) {
-                        numAlreadyEscorting++;
+                    if (canEscort) {
+                        isEscorting = true;
+                        Communicator.incrementEscortCnt(rc, i);
+                        int distSqFromAlly = rc.getLocation().distanceSquaredTo(sharedAllyFlagCarrierInfo[i]);
+
+                        if (distSqFromAlly <= 9) {
+                            Direction direction = sharedAllyFlagCarrierInfo[i].directionTo(Util.chooseClosestLoc(sharedAllyFlagCarrierInfo[i], rc.getAllySpawnLocations()));
+                            int distSqFromAllyAfterAllyMoves = sharedAllyFlagCarrierInfo[i].add(direction).distanceSquaredTo(rc.getLocation());
+                            if (distSqFromAllyAfterAllyMoves < distSqFromAlly && sharedAllyFlagCarrierInfo[i].distanceSquaredTo(rc.getLocation()) < 4) {
+                                Navigator.tryMove(rc, direction);
+                            }
+                            if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
+                                Navigator.tryMove(rc, direction);
+                            }
+                        } else {
+                            Navigator.moveToward(rc, sharedAllyFlagCarrierInfo[i]);
+                        }
                     }
-                }
-                if (numAlreadyEscorting < 8) { //TODO: use shared array instead so further away allies can join escort
-                    isEscorting = true;
-                    Direction direction = ally.getLocation().directionTo(Util.chooseClosestLoc(ally.getLocation(), rc.getAllySpawnLocations()));
-                    int distSqFromAllyAfterAllyMoves = ally.getLocation().add(direction).distanceSquaredTo(rc.getLocation());
-                    if (distSqFromAllyAfterAllyMoves < distSqFromAlly && ally.getLocation().distanceSquaredTo(rc.getLocation()) < 4) {
-                        Navigator.tryMove(rc, direction);
-                    }
-                    if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
-                        Navigator.tryMove(rc, direction);
-                    }
-                    break;
                 }
             }
         }
+
 
         if (rc.hasFlag()) {// carrying flag to spawn
             lastFlagRound = rc.getRoundNum();
