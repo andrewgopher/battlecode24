@@ -55,14 +55,29 @@ public class Navigator {
         return true;
     }
 
+    static Direction currWanderDir = null;
+
     public static void wander(RobotController rc, Random rng) throws GameActionException {
-        int currDirInd = rng.nextInt(DirectionsUtil.directions.length);
-        for (int i = 0; i < DirectionsUtil.directions.length; i ++) {
-            if (canMove(rc,DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length])) {
-                tryMove(rc,DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length]);
+//        int currDirInd = rng.nextInt(DirectionsUtil.directions.length);
+//        for (int i = 0; i < DirectionsUtil.directions.length; i ++) {
+//            if (canMove(rc,DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length])) {
+//                tryMove(rc,DirectionsUtil.directions[(currDirInd+i)%DirectionsUtil.directions.length]);
+//                break;
+//            }
+//        }
+        if (currWanderDir == null) {
+            currWanderDir = DirectionsUtil.randomDirection(rng);
+        }
+        int i = 0;
+        while (!canMove(rc, currWanderDir)) {
+            currWanderDir = DirectionsUtil.randomDirection(rng);
+            i++;
+            if (i==8) {
                 break;
             }
         }
+
+        tryMove(rc,currWanderDir);
     }
 
     public static MapLocation tryMove(RobotController rc, Direction dir) throws GameActionException {

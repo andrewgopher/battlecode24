@@ -1,6 +1,7 @@
 package player21;
 
 import battlecode.common.*;
+import player21.fast.FastLocSet;
 
 public class Player extends Robot{
     static boolean isEscorting = false;
@@ -135,6 +136,50 @@ public class Player extends Robot{
         }
         return attackTarget;
     }
+
+    public void tryEscort(RobotController rc, int maxEscort, int maxDist) throws  GameActionException {
+        for (int i = 0; i < 3; i ++) {//TODO: escort instead of going on enemy spawn when no flags to target
+            if (sharedAllyFlagCarrierInfo[i] != null) {
+                if (Communicator.getEscortCnt(rc, i) < maxEscort) {
+                    boolean canEscort = false;
+                    MapLocation currAllyLoc = sharedAllyFlagCarrierInfo[i];
+                    MapLocation closestAllySpawn = Util.chooseClosestLoc(currAllyLoc, rc.getAllySpawnLocations());
+                    int j =0;
+                    while (!currAllyLoc.equals(closestAllySpawn)) {
+                        if (currAllyLoc.distanceSquaredTo(sharedAllyFlagCarrierInfo[i]) <= j*j) {
+                            break;
+                        }
+                        currAllyLoc = currAllyLoc.add(currAllyLoc.directionTo(closestAllySpawn));
+                        j+=2;
+                    }
+                    if (j <= maxDist) {
+                        canEscort =true;
+                    }
+
+                    if (canEscort) {
+                        isEscorting = true;
+                        Communicator.incrementEscortCnt(rc, i);
+                        int distSqFromAlly = rc.getLocation().distanceSquaredTo(sharedAllyFlagCarrierInfo[i]);
+
+                        if (distSqFromAlly <= 9) {
+                            Direction direction = sharedAllyFlagCarrierInfo[i].directionTo(Util.chooseClosestLoc(sharedAllyFlagCarrierInfo[i], rc.getAllySpawnLocations()));
+                            int distSqFromAllyAfterAllyMoves = sharedAllyFlagCarrierInfo[i].add(direction).distanceSquaredTo(rc.getLocation());
+                            if (distSqFromAllyAfterAllyMoves < distSqFromAlly && sharedAllyFlagCarrierInfo[i].distanceSquaredTo(rc.getLocation()) < 4) {
+                                Navigator.tryMove(rc, direction);
+                            }
+                            if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
+                                Navigator.tryMove(rc, direction);
+                            }
+                        } else {
+                            Navigator.moveToward(rc, sharedAllyFlagCarrierInfo[i]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    FastLocSet visitedBroadcast = new FastLocSet();
     public void offense(RobotController rc) throws GameActionException{
         RobotInfo[] nearbyEnemies = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
 
@@ -184,75 +229,27 @@ public class Player extends Robot{
 
         //escorting
         isEscorting = false;
-//        for (RobotInfo ally : nearbyAllies) {
-//            int distSqFromAlly = ally.getLocation().distanceSquaredTo(rc.getLocation());
-//
-//            if (ally.hasFlag()) {
-//                int numAlreadyEscorting = 0;
-//                for (RobotInfo ally2 : nearbyAllies) {
-//                    if (ally2.getLocation().distanceSquaredTo(ally.getLocation()) <= GameConstants.VISION_RADIUS_SQUARED) {
-//                        numAlreadyEscorting++;
-//                    }
-//                }
-//                if (numAlreadyEscorting < 8) { //TODO: use shared array instead so further away allies can join escort
-//                    isEscorting = true;
-//                    Direction direction = ally.getLocation().directionTo(Util.chooseClosestLoc(ally.getLocation(), rc.getAllySpawnLocations()));
-//                    int distSqFromAllyAfterAllyMoves = ally.getLocation().add(direction).distanceSquaredTo(rc.getLocation());
-//                    if (distSqFromAllyAfterAllyMoves < distSqFromAlly && ally.getLocation().distanceSquaredTo(rc.getLocation()) < 4) {
-//                        Navigator.tryMove(rc, direction);
-//                    }
-//                    if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
-//                        Navigator.tryMove(rc, direction);
-//                    }
-//                    break;
-//                }
-//            }
-//        }
-        for (int i = 0; i < 3; i ++) {
-            if (sharedAllyFlagCarrierInfo[i] != null) {
-                if (Communicator.getEscortCnt(rc, i) < 5) {
-                    boolean canEscort = false;
-                    MapLocation currAllyLoc = sharedAllyFlagCarrierInfo[i];
-                    MapLocation closestAllySpawn = Util.chooseClosestLoc(currAllyLoc, rc.getAllySpawnLocations());
-                    int j =0;
-                    while (!currAllyLoc.equals(closestAllySpawn)) {
-                        if (currAllyLoc.distanceSquaredTo(sharedAllyFlagCarrierInfo[i]) <= j*j) {
-                            break;
-                        }
-                        currAllyLoc = currAllyLoc.add(currAllyLoc.directionTo(closestAllySpawn));
-                        j+=2;
-                    }
-                    if (j <= 15) {
-                        canEscort =true;
-                    }
-
-                    if (canEscort) {
-                        isEscorting = true;
-                        Communicator.incrementEscortCnt(rc, i);
-                        int distSqFromAlly = rc.getLocation().distanceSquaredTo(sharedAllyFlagCarrierInfo[i]);
-
-                        if (distSqFromAlly <= 9) {
-                            Direction direction = sharedAllyFlagCarrierInfo[i].directionTo(Util.chooseClosestLoc(sharedAllyFlagCarrierInfo[i], rc.getAllySpawnLocations()));
-                            int distSqFromAllyAfterAllyMoves = sharedAllyFlagCarrierInfo[i].add(direction).distanceSquaredTo(rc.getLocation());
-                            if (distSqFromAllyAfterAllyMoves < distSqFromAlly && sharedAllyFlagCarrierInfo[i].distanceSquaredTo(rc.getLocation()) < 4) {
-                                Navigator.tryMove(rc, direction);
-                            }
-                            if (distSqFromAllyAfterAllyMoves >= distSqFromAlly) {
-                                Navigator.tryMove(rc, direction);
-                            }
-                        } else {
-                            Navigator.moveToward(rc, sharedAllyFlagCarrierInfo[i]);
-                        }
-                    }
-                }
-            }
-        }
+        tryEscort(rc,5,15);
 
 
         if (rc.hasFlag()) {// carrying flag to spawn
             lastFlagRound = rc.getRoundNum();
             int flagId = rc.senseNearbyFlags(0)[0].getID();
-            MapLocation target = Util.chooseClosestLoc(rc.getLocation(), rc.getAllySpawnLocations());
+            MapLocation target = null;
+            double minSpawnEnemies = Util.BigNum;
+            int minDistToSpawn = Util.BigNum;
+            for (int i=0;i<3;i++) {
+                double currAllies = Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+6*i,6);
+                if ((double)sharedAllySpawnEnemiesInfo[i]/(currAllies+0.1) < minSpawnEnemies) {
+                    minSpawnEnemies = sharedAllySpawnEnemiesInfo[i];
+                    target = sharedAllySpawnInfo[i];
+                    minDistToSpawn = sharedAllySpawnInfo[i].distanceSquaredTo(rc.getLocation());
+                } else if ((double)sharedAllySpawnEnemiesInfo[i]/(currAllies+0.1) == minSpawnEnemies && sharedAllySpawnInfo[i].distanceSquaredTo(rc.getLocation()) < minDistToSpawn) {
+                    minSpawnEnemies = (double)sharedAllySpawnEnemiesInfo[i]/(currAllies+0.1);
+                    target = sharedAllySpawnInfo[i];
+                    minDistToSpawn = sharedAllySpawnInfo[i].distanceSquaredTo(rc.getLocation());
+                }
+            }
             fillLoc = Navigator.moveToward(rc, target);
             for (int i = 0; i < 3; i++) {
                 if (flagId == Communicator.interpretNumber(rc, Communicator.enemyFlagIDsStart + 14 * i, 14)) {
@@ -314,13 +311,21 @@ public class Player extends Robot{
                     Navigator.moveToward(rc, target);
                 } else {
                     MapLocation closestBroadcastLoc = Util.chooseClosestLoc(rc.getLocation(), broadcastFlagLocations);
-                    if (closestBroadcastLoc != null && rc.getLocation().distanceSquaredTo(closestBroadcastLoc) > 10) {
+                    if (closestBroadcastLoc != null && rc.getLocation().distanceSquaredTo(closestBroadcastLoc) <= 10) {
+                        visitedBroadcast.add(closestBroadcastLoc);
+                    }
+                    if (closestBroadcastLoc != null && rc.getLocation().distanceSquaredTo(closestBroadcastLoc) > 10 && !visitedBroadcast.contains(closestBroadcastLoc)) {
                         Navigator.moveToward(rc, closestBroadcastLoc);
-                        indicatorString += "rush broadcast,";
+                        indicatorString += "rush broadcast " + closestBroadcastLoc + ",";
                     } else {
-                        target = getClosestEnemySpawn(rc, rc.getLocation());
-                        Navigator.moveToward(rc, target);
-                        indicatorString += "rush enemy spawn,";
+                        tryEscort(rc,Util.BigNum,Util.BigNum);
+                        if (!isEscorting) {
+                            target = getClosestEnemySpawn(rc, rc.getLocation());
+                            Navigator.moveToward(rc, target);
+                            indicatorString += "rush enemy spawn,";
+                        } else {
+                            indicatorString += "force escort,";
+                        }
                     }
                 }
             }
@@ -474,7 +479,7 @@ public class Player extends Robot{
         //attacking micro
 
         if (rc.getActionCooldownTurns() < 10) {
-            if (inAttackRange(rc.getLocation(), nearbyEnemies) == 0) {
+            if (inAttackRange(rc.getLocation(), nearbyEnemies) == 0) {//TODO: too risky
                 Direction chaseDir =chase(rc,nearbyEnemies);
                 if (chaseDir != null && Navigator.canMove(rc,chaseDir)) {
                     indicatorString+="chase " + chaseDir+",";

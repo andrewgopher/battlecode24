@@ -61,7 +61,7 @@ public class Robot {
             if (loc != null) {
                 rc.setIndicatorDot(loc,0,255,0);
 //                indicatorString += loc + " " + sharedAllySpawnTurnInfo[i]+ " " + sharedAllySpawnEnemiesInfo[i]+ " " + Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+12*i,12)+ ",";
-                indicatorString+=Communicator.getEscortCnt(rc,i)+",";
+//                indicatorString+=Communicator.getEscortCnt(rc,i)+",";
             }
             i++;
         }
@@ -105,7 +105,9 @@ public class Robot {
             for (int i = 0; i < 3; i ++) {
                 Communicator.writeNumber(rc,Communicator.allySpawnsEnemies+12*i,Communicator.interpretNumber(rc,Communicator.newAllySpawnsEnemies+12*i,12),12);
                 Communicator.writeNumber(rc,Communicator.allySpawnsAllies+12*i,Communicator.interpretNumber(rc,Communicator.newAllySpawnsAllies+12*i,12),12);
-                Communicator.writeNumber(rc,Communicator.newAllySpawnsEnemies+12*i,0,12);
+                if (Communicator.interpretNumber(rc, Communicator.allySpawnsAllies+12*i,12) > 0) {
+                    Communicator.writeNumber(rc, Communicator.newAllySpawnsEnemies + 12 * i, 0, 12);
+                }
                 Communicator.writeNumber(rc,Communicator.newAllySpawnsAllies+12*i,0,12);
             }
         }

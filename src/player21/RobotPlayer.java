@@ -1,4 +1,4 @@
-package player20;
+package player21;
 
 import battlecode.common.*;
 
@@ -34,6 +34,8 @@ public strictfp class RobotPlayer {
                     int maxTurnsSinceReport = 0;
 
                     double maxEnemiesAtSpawn = 0;
+                    int minDistToEnemyFlag = Util.BigNum;
+                    boolean enemyFlagCarrierSpawnFound = false;
 
                     for (MapLocation loc : spawnLocs) {
                         if (!rc.canSpawn(loc)) continue;
@@ -61,6 +63,13 @@ public strictfp class RobotPlayer {
                             continue;
                         }
 
+                        int currDistToEnemyFlag = Util.BigNum;
+                        for (i = 0; i < 3; i ++) {
+                            if (Player.sharedEnemyFlagInfo[i] != null && Player.sharedEnemyFlagInfo[i].distanceSquaredTo(loc) < currDistToEnemyFlag) {
+                                currDistToEnemyFlag = Player.sharedEnemyFlagInfo[i].distanceSquaredTo(loc);
+                            }
+                        }
+
 
                         if (rc.getRoundNum()-Player.sharedAllySpawnTurnInfo[centerInd]>= 15) {
                             better = true;
@@ -69,8 +78,30 @@ public strictfp class RobotPlayer {
                         int currEnemies = Player.sharedAllySpawnEnemiesInfo[centerInd];
                         int currAllies = Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+12*centerInd,12);
 
-                        if (maxTurnsSinceReport < 15) {
+                        if (maxTurnsSinceReport < 15 && !enemyFlagCarrierSpawnFound) {
+                            for (i = 0; i < 3; i ++) {
+                                MapLocation enemyCarrierLoc =Player.sharedEnemyFlagCarrierInfo[i];
+                                if (enemyCarrierLoc ==null) continue;
+                                int minDistToEnemyCarrier = Util.BigNum;
+                                MapLocation minDistCenter = null;
+
+                                for (int j = 0; j < 3; j ++) {
+                                    if (Player.sharedAllySpawnInfo[i] != null && Player.sharedAllySpawnInfo[i].distanceSquaredTo(enemyCarrierLoc) < minDistToEnemyCarrier && Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+6*i,6) < Player.sharedAllySpawnEnemiesInfo[i]+7) {
+                                        minDistToEnemyCarrier = Player.sharedAllySpawnInfo[i].distanceSquaredTo(enemyCarrierLoc);
+                                        minDistCenter = Player.sharedAllySpawnInfo[i];
+                                    }
+                                }
+                                if (minDistCenter != null && minDistCenter.isAdjacentTo(loc)) {
+                                    enemyFlagCarrierSpawnFound = true;
+                                    better = true;
+                                    break;
+                                }
+                            }
+
                             if ((double)currEnemies/(double)currAllies > maxEnemiesAtSpawn || ((double)currEnemies/(double)currAllies == maxEnemiesAtSpawn && rc.getRoundNum() - Player.sharedAllySpawnTurnInfo[centerInd] >= maxTurnsSinceReport)) {
+                                better = true;
+                            }
+                            if (maxEnemiesAtSpawn == 0 && currDistToEnemyFlag < minDistToEnemyFlag) {
                                 better = true;
                             }
                         }
