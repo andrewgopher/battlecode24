@@ -236,16 +236,9 @@ public class Player extends Robot{
             lastFlagRound = rc.getRoundNum();
             int flagId = rc.senseNearbyFlags(0)[0].getID();
             MapLocation target = null;
-            double minSpawnEnemies = Util.BigNum;
             int minDistToSpawn = Util.BigNum;
             for (int i=0;i<3;i++) {
-                double currAllies = Communicator.interpretNumber(rc,Communicator.allySpawnsAllies+6*i,6);
-                if ((double)sharedAllySpawnEnemiesInfo[i]/(currAllies+0.1) < minSpawnEnemies) {
-                    minSpawnEnemies = sharedAllySpawnEnemiesInfo[i];
-                    target = sharedAllySpawnInfo[i];
-                    minDistToSpawn = sharedAllySpawnInfo[i].distanceSquaredTo(rc.getLocation());
-                } else if ((double)sharedAllySpawnEnemiesInfo[i]/(currAllies+0.1) == minSpawnEnemies && sharedAllySpawnInfo[i].distanceSquaredTo(rc.getLocation()) < minDistToSpawn) {
-                    minSpawnEnemies = (double)sharedAllySpawnEnemiesInfo[i]/(currAllies+0.1);
+                if (sharedAllySpawnInfo[i].distanceSquaredTo(rc.getLocation())< minDistToSpawn) {
                     target = sharedAllySpawnInfo[i];
                     minDistToSpawn = sharedAllySpawnInfo[i].distanceSquaredTo(rc.getLocation());
                 }
@@ -259,6 +252,13 @@ public class Player extends Robot{
                 }
             }
         } else if (!isEscorting && !isOpenEnemies) {//macro movement: moving to enemy, intercepting enemy flag carriers
+            if (rc.isMovementReady()) {
+                for (FlagInfo flag : nearbyEnemyFlags) {
+                    if (!flag.isPickedUp()) {
+                        Navigator.moveToward(rc,flag.getLocation());
+                    }
+                }
+            }
             if (rc.isMovementReady()) {
                 for (int i = 0; i < 3; i++) {
                     MapLocation lastSeenEnemyFlagCarrierLoc = sharedEnemyFlagCarrierInfo[i];
@@ -318,11 +318,9 @@ public class Player extends Robot{
                         Navigator.moveToward(rc, closestBroadcastLoc);
                         indicatorString += "rush broadcast " + closestBroadcastLoc + ",";
                     } else {
-                        tryEscort(rc,Util.BigNum,Util.BigNum);
+                        tryEscort(rc,8,Util.BigNum);
                         if (!isEscorting) {
-                            target = getClosestEnemySpawn(rc, rc.getLocation());
-                            Navigator.moveToward(rc, target);
-                            indicatorString += "rush enemy spawn,";
+                            Navigator.wander(rc,rng);
                         } else {
                             indicatorString += "force escort,";
                         }
@@ -507,6 +505,21 @@ public class Player extends Robot{
         }
     }
 
+    public void tryHeal(RobotController rc, RobotInfo[] nearbyAllies) throws GameActionException {
+        int minAllyHealth = 1000;
+        MapLocation healTarget = null;
+        for (RobotInfo ally : nearbyAllies) {
+            if (ally.getHealth() < 1000 && ally.getHealth() < minAllyHealth && rc.canHeal(ally.getLocation())) {
+                minAllyHealth = ally.getHealth();
+                healTarget = ally.getLocation();
+            }
+        }
+        if (healTarget != null && rc.canHeal(healTarget)) {
+            indicatorString += "heal" + ",";
+            rc.heal(healTarget);
+        }
+    }
+
     public void fight(RobotController rc, RobotInfo[] nearbyEnemies, RobotInfo[] nearbyAllies, MapInfo[] nearbyMapInfos) throws GameActionException {
         int numNearbyEnemyFlagCarriers = 0;
         for (RobotInfo enemy : nearbyEnemies) {
@@ -526,8 +539,7 @@ public class Player extends Robot{
 
 
         MapLocation closestEnemyLoc = Util.chooseClosestRobot(rc.getLocation(),nearbyEnemies);
-
-//        alternate healing code (this doesn't heal enough)
+//        alternate healing code
         if (rc.getActionCooldownTurns() < 10) {
             int currHealCyc = (rc.getActionCooldownTurns() + Util.healLevelCoolDown[rc.getLevel(SkillType.HEAL)]) / 10;
 //            indicatorString += currHealCyc;
@@ -557,18 +569,7 @@ public class Player extends Robot{
 //            indicatorString += ",";
 
             if (closestEnemyLoc == null || currLoc.distanceSquaredTo(closestEnemyLoc) > 4) {
-                int minAllyHealth = 1000;
-                MapLocation healTarget = null;
-                for (RobotInfo ally : nearbyAllies) {
-                    if (ally.getHealth() < 1000 && ally.getHealth() < minAllyHealth && rc.canHeal(ally.getLocation())) {
-                        minAllyHealth = ally.getHealth();
-                        healTarget = ally.getLocation();
-                    }
-                }
-                if (healTarget != null && rc.canHeal(healTarget)) {
-                    indicatorString += "heal" + ",";
-                    rc.heal(healTarget);
-                }
+                tryHeal(rc,nearbyAllies);
             }
         }
         attack(rc, nearbyEnemies, nearbyAllies, nearbyMapInfos);
